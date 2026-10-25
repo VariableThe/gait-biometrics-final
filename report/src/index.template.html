@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gait-based continuous authentication — measured results review</title>
+<meta name="description" content="Evidence-first review of the gait-biometrics pipeline: verification error, activity classification, a locked cross-day study, subject-generalisation scaling and runtime cost.">
+<style>/*__CSS__*/</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand"><span class="dot"></span> Gait Biometrics <small>· measured results review</small></div>
+  <nav class="sections">
+    <a href="#verif">Verification</a>
+    <a href="#dev">Model development</a>
+    <a href="#act">Activity classes</a>
+    <a href="#cross">Cross-day &amp; multisensor</a>
+    <a href="#calib">Calibration</a>
+    <a href="#scale">Generalisation</a>
+    <a href="#perf">Cost</a>
+    <a href="#read">Reading the results</a>
+  </nav>
+  <div class="tools">
+    <button class="iconbtn" id="print-btn" title="Print or save as PDF"><span class="glyph">⎙</span>Print</button>
+    <button class="iconbtn" id="theme-toggle" title="Toggle light / dark"><span class="glyph">◐</span>Dark</button>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- ============================ HERO ============================ -->
+  <div class="hero">
+    <div class="kicker">Minor Specialisation Project · review of measured results</div>
+    <h1>Cross-day verification went from one user refused 8 of 10 times to zero rejections</h1>
+    <p class="lede">An evidence-first review of the <b>gait-biometrics</b> pipeline. Overnight, a multisensor descriptor plus lagged-covariance backend cut the frozen cross-day error from 7.0% EER with a 22% genuine-reject rate to 0.0% EER with no rejections — but that headline is <b>exploratory reuse of five already-inspected users</b> and the false-accept rate still sits at 1.5%, above target. A separate pooled-calibration study also improved the development false-accept rate. Every number is reproduced from committed report artefacts, negative results are kept visible, and reused test cohorts are labelled as such.</p>
+    <div class="chips">
+      <span class="chip"><span class="pip" style="background:var(--c-good)"></span><b>0</b> genuine rejections at the new frozen threshold</span>
+      <span class="chip"><span class="pip" style="background:var(--c-cross)"></span><b>3</b> datasets · UCI HAR · WISDM AR v1.1 · Santos v7</span>
+      <span class="chip"><span class="pip" style="background:var(--c-warn)"></span><b>exploratory</b> cross-day test reuses 5 inspected users</span>
+      <span class="chip"><span class="pip" style="background:var(--c-bad)"></span><b>1</b> negative result retained in full</span>
+      <span class="chip">source commit <b>4014d85</b></span>
+      <span class="chip">24 October 2026</span>
+    </div>
+  </div>
+
+  <!-- ============================ KPIs ============================ -->
+  <section id="top" style="padding-top:6px">
+    <div class="grid g6">
+      <div class="card kpi" data-kpi="wisdm_eer"></div>
+      <div class="card kpi" data-kpi="crossday"></div>
+      <div class="card kpi" data-kpi="calibration"></div>
+      <div class="card kpi" data-kpi="preproc"></div>
+      <div class="card kpi" data-kpi="multisensor"></div>
+      <div class="card kpi" data-kpi="har_activity"></div>
+    </div>
+  </section>
+
+  <!-- ============================ VERIFICATION ============================ -->
+  <section id="verif">
+    <div class="sec-head">
+      <span class="kicker">01 · Verification</span>
+      <h2>How far the identity check has come — and where it still fails</h2>
+      <p>Within-recording verification on held-out subjects: 10,000 balanced same-activity comparisons per configuration (seed 42), thresholds selected on the validation split and then frozen, and EER reported as an independent quantity rather than as an alias of the operating point. Cross-day results live in section 04 because they use a different cohort and dataset.</p>
+    </div>
+
+    <div class="grid g2">
+      <div class="card pad-lg span2">
+        <div class="chart-head">
+          <div>
+            <h3>Verification error by configuration</h3>
+            <p class="sub">Lower is better for EER, FAR and FRR; higher is better for AUC. Cross-day row is a different dataset — not a control for the others.</p>
+          </div>
+          <div class="seg" id="seg-verification">
+            <button data-metric="eer" class="on">EER</button>
+            <button data-metric="auc">ROC AUC</button>
+            <button data-metric="far">Fixed FAR</button>
+            <button data-metric="frr">Fixed FRR</button>
+          </div>
+        </div>
+        <div class="chart" id="chart-verification"></div>
+        <div class="legend">
+          <span class="item"><span class="swatch" style="background:var(--c-base)"></span>frozen baseline</span>
+          <span class="item"><span class="swatch" style="background:var(--c-accent)"></span>selected new method</span>
+          <span class="item"><span class="swatch" style="background:var(--c-bad)"></span>negative result (validation winner that failed to generalise)</span>
+          <span class="item"><span class="swatch" style="background:var(--c-warn)"></span>exploratory follow-up (test cohort already seen)</span>
+          <span class="item"><span class="swatch" style="background:var(--c-cross)"></span>cross-day study (separate dataset)</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid g2" style="margin-top:16px">
+      <div class="card pad-lg">
+        <h3>Locked test results, side by side</h3>
+        <p class="sub">HAR and WISDM share the within-recording protocol. Evidence status is part of the result, not a footnote.</p>
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr><th>Dataset</th><th>Method</th><th class="num">EER</th><th class="num">AUC</th><th class="num">Fixed FAR</th><th class="num">Fixed FRR</th><th>Evidence</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>UCI HAR</td><td>Frozen baseline (20 ep)</td>
+                <td class="num">17.64%</td><td class="num">0.9252</td><td class="num">3.58%</td><td class="num">37.28%</td>
+                <td><span class="tag mute">prior baseline</span></td>
+              </tr>
+              <tr>
+                <td>UCI HAR</td><td>Multiscale hybrid ensemble</td>
+                <td class="num">21.46%</td><td class="num">0.8900</td><td class="num">6.86%</td><td class="num">27.38%</td>
+                <td><span class="tag bad">negative result</span></td>
+              </tr>
+              <tr>
+                <td>UCI HAR</td><td>Descriptors + WCCN (0.2)</td>
+                <td class="num">10.44%</td><td class="num">0.9608</td><td class="num">0.54%</td><td class="num">30.46%</td>
+                <td><span class="tag warn">exploratory · test reused</span></td>
+              </tr>
+              <tr>
+                <td>WISDM AR v1.1</td><td>Frozen baseline (20 ep)</td>
+                <td class="num">20.10%</td><td class="num">0.8686</td><td class="num">15.20%</td><td class="num">24.68%</td>
+                <td><span class="tag mute">prior baseline</span></td>
+              </tr>
+              <tr class="hl">
+                <td>WISDM AR v1.1</td><td>Multiscale batch-hard ensemble</td>
+                <td class="num">9.58%</td><td class="num">0.9622</td><td class="num">8.26%</td><td class="num">10.72%</td>
+                <td><span class="tag good">validation-locked</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="note warn" style="margin-top:14px">
+          <p><b>Read the fixed FRR column as a usability number, not a ranking.</b> The HAR descriptor follow-up has the best error rate (10.44%) and the lowest false-accept rate (0.54%), yet still refuses 3 in 10 genuine attempts. The comparison is not architecture-controlled: the neural bundle changes normalisation, sampling, objective, augmentation, 40 vs 20 epochs and 3-member vs single-model inference at once.</p>
+        </div>
+      </div>
+
+      <div class="card pad-lg">
+        <h3>Five-window prefix enrollment</h3>
+        <p class="sub">A separate protocol: five enrollment windows per identity, two skipped, every surviving probe compared against the template. Not directly comparable with random-pair EER.</p>
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr><th>WISDM method</th><th class="num">EER</th><th class="num">AUC</th><th class="num">Fixed FAR</th><th class="num">Fixed FRR</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Frozen baseline</td><td class="num">28.37%</td><td class="num">0.7804</td><td class="num">21.11%</td><td class="num">37.72%</td></tr>
+              <tr class="hl"><td>Selected neural ensemble</td><td class="num">20.42%</td><td class="num">0.9104</td><td class="num">10.78%</td><td class="num">35.99%</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="note info" style="margin-top:14px">
+          <p><b>Enrollment improved, but it is not a session protocol.</b> Index purging assumes preserved within-subject order; raw recording offsets are unavailable, so raw non-overlap and independent enrollment/probe sessions are <b>not</b> established. HAR enrollment <i>worsened</i> for the primary neural winner and is reported in full in the repository rather than dropped.</p>
+        </div>
+        <div class="note" style="margin-top:12px">
+          <p><b>What is established so far:</b> on WISDM walking, a validation-locked ensemble halves the error rate of the previous baseline and keeps the false-accept rate at 8.26% at a frozen threshold. <b>What is not:</b> a deployable operating point, phone-based authentication, or continuous passive authentication.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ MODEL DEVELOPMENT ============================ -->
+  <section id="dev">
+    <div class="sec-head">
+      <span class="kicker">02 · Model development</span>
+      <h2>Selection discipline: validation chooses, test only reports</h2>
+      <p>Six neural methods were trained for 40 epochs at three seeds each, with three descriptor baselines, giving 15 validation candidates per dataset. The winner was chosen on validation EER, its artefacts were hashed and locked, and the test split was read once. The curves below show how much of the error was visible before the test split was touched — and how much of it appeared afterwards.</p>
+    </div>
+
+    <div class="grid g2">
+      <div class="card pad-lg span2">
+        <div class="chart-head">
+          <div>
+            <h3>Validation trajectory of the selected methods (40 epochs)</h3>
+            <p class="sub">Dashed lines are the locked test EER of the same method. The gap between the two is the generalisation gap the study exists to expose.</p>
+          </div>
+          <div class="seg" id="seg-curves">
+            <button data-metric="val_eer" class="on">Val EER</button>
+            <button data-metric="val_roc_auc">Val AUC</button>
+            <button data-metric="loss">Loss</button>
+          </div>
+        </div>
+        <div class="chart" id="chart-curves"></div>
+        <div class="legend">
+          <span class="item"><span class="swatch line" style="background:var(--c-accent)"></span>WISDM v1 · multiscale batch-hard (selected)</span>
+          <span class="item"><span class="swatch line" style="background:var(--c-bad)"></span>UCI HAR · multiscale hybrid (selected, then failed)</span>
+        </div>
+      </div>
+
+      <div class="card pad-lg span2">
+        <div class="chart-head">
+          <div>
+            <h3>All 15 validation candidates</h3>
+            <p class="sub">Selection happened here, on validation, before any test access. The winner is highlighted.</p>
+          </div>
+          <div class="seg" id="seg-landscape">
+            <button data-ds="wisdm" class="on">WISDM v1</button>
+            <button data-ds="har">UCI HAR</button>
+          </div>
+        </div>
+        <div class="chart" id="chart-landscape"></div>
+        <div class="legend">
+          <span class="item"><span class="swatch" style="background:var(--c-accent)"></span>selected winner</span>
+          <span class="item"><span class="swatch" style="background:var(--c-base)"></span>other candidate</span>
+          <span class="item"><span class="swatch" style="background:var(--c-explore)"></span>descriptor baseline</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid g3" style="margin-top:16px">
+      <div class="card">
+        <h3>What the protocol guarantees</h3>
+        <ul class="tight" style="margin-top:8px">
+          <li><b>Selection on validation only.</b> No seed, threshold or post-processing choice was made from test scores; the seed ensemble is uniform, not best-of-three.</li>
+          <li><b>Locking with hashes.</b> <code>selection_lock.json</code> freezes artefact hashes, development tensor hashes and the baseline checksum; the runner revalidates checkpoint config, seed, 40 completed epochs and protocol before reuse.</li>
+          <li><b>Reduced smoke runs cannot unlock</b> a test evaluation.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>What it cost</h3>
+        <ul class="tight" style="margin-top:8px">
+          <li><b>36 final neural runs completed</b> (6 methods × 3 seeds × 2 datasets), plus 15 descriptor candidates and an earlier validation-only sweep kept for provenance.</li>
+          <li>Summed per-run training time: 287.19 s (HAR) and 225.19 s (WISDM) on an RTX 5070 Ti, both sweeps running concurrently.</li>
+          <li>GPU training is not promised bitwise reproducible; the real TF32 check observed zero embedding difference with cuDNN TF32 disabled, and a preliminary TF32-enabled run exceeded tolerance, so that path is rejected rather than silently accepted.</li>
+        </ul>
+      </div>
+      <div class="card" style="border-color:color-mix(in srgb, var(--c-bad) 40%, var(--border-soft))">
+        <h3 style="color:var(--c-bad)">The negative result, kept in view</h3>
+        <p class="sub">HAR hybrid won validation at 3.04% EER and reached 21.46% on test — worse than the 17.64% baseline it replaced.</p>
+        <ul class="tight" style="margin-top:6px">
+          <li>Per-seed test EER 0.2130 / 0.2004 / 0.2288, ensemble 0.2146.</li>
+          <li>The same pattern on WISDM: validation 1.98% → test 9.58%.</li>
+          <li>It is reported in full in the repository, and no later candidate was chosen from test scores to replace it.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ ACTIVITY ============================ -->
+  <section id="act">
+    <div class="sec-head">
+      <span class="kicker">03 · Activity classification</span>
+      <h2>Six activity classes, and the selection rule that changed the numbers</h2>
+      <p>Activity recognition is the first stage of the pipeline: only walking windows are used for identity comparison. The five-track sweep re-ran every architecture for 20 full epochs and selected each checkpoint on <b>validation activity loss</b> instead of training loss — a stricter rule that lowered several reported accuracies. The historical numbers are shown alongside for comparison, and the difference is reported rather than smoothed over.</p>
+    </div>
+
+    <div class="grid g2">
+      <div class="card pad-lg">
+        <h3>Test activity accuracy by track</h3>
+        <p class="sub">Solid bars: current validation-selected sweep. Muted bars: historical run selected on training loss. Dashed line: best historical single run (0.9369, four validation subjects).</p>
+        <div class="chart" id="chart-activity"></div>
+        <div class="legend">
+          <span class="item"><span class="swatch" style="background:var(--c-accent)"></span>validation-selected sweep (current protocol)</span>
+          <span class="item"><span class="swatch" style="background:var(--c-base)"></span>historical, train-loss selected</span>
+          <span class="item"><span class="swatch" style="background:var(--c-warn)"></span>historical best single run (different protocol)</span>
+        </div>
+        <div class="note" style="margin-top:14px">
+          <p><b>WISDM activity track:</b> 86.68% test accuracy for the same DeepConvLSTM, on a different dataset with different class balance. It is a separate measurement, not a second view of the HAR number.</p>
+        </div>
+      </div>
+
+      <div class="card pad-lg">
+        <h3>Confusion matrix — best current track (multitask, 90.53%)</h3>
+        <p class="sub">Counts of 2,947 test windows. The remaining error is concentrated in <i>standing</i> ↔ <i>sitting</i> — a posture confusion, not a gait one.</p>
+        <div class="chart" id="chart-confusion"></div>
+        <div class="mini">Rows = true class, columns = predicted class. Hover any cell for the row share.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ CROSS-DAY ============================ -->
+  <section id="cross">
+    <div class="sec-head">
+      <span class="kicker">04 · Cross-day &amp; multisensor</span>
+      <h2>The frozen cross-day error fell to zero — and the hard user was fixed</h2>
+      <p>Santos v7 is controlled leg-mounted walking collected on two different days. The overnight hillclimb changed the representation (accelerometer + gyroscope + rotation-invariant descriptors), the backend (lagged covariance), and the enrollment scorer (a mean/two-template blend). Each change was selected on development folds, and its threshold was calibrated on five separate CALIB users before test access. The result below is the first time the pipeline separates all five test users across days — with an important caveat: the test cohort is the <b>same five people already inspected</b> in the earlier study, so this is exploratory, not a fresh blind evaluation.</p>
+    </div>
+
+    <div class="grid g2">
+      <div class="card pad-lg span2">
+        <div class="chart-head">
+          <div>
+            <h3>Cross-day error by method (frozen-threshold test)</h3>
+            <p class="sub">Each bar is the same five test users, day-1 enrollment, day-2 probing. EER is independent of the threshold; AUC and the fixed FAR/FRR are shown in the table below.</p>
+          </div>
+        </div>
+        <div class="chart" id="chart-crossday-progress"></div>
+        <div class="tbl-wrap" style="margin-top:16px">
+          <table>
+            <thead><tr><th>Method</th><th class="num">EER</th><th class="num">AUC</th><th class="num">False accepts</th><th class="num">Genuine rejections</th><th>Evidence</th></tr></thead>
+            <tbody>
+              <tr><td>Historical accel + mean template</td><td class="num">7.0%</td><td class="num">0.9888</td><td class="num">1/200 (0.5%)</td><td class="num">11/50 (22%)</td><td><span class="tag mute">prior baseline</span></td></tr>
+              <tr><td>Multisensor + two templates</td><td class="num">2.5%</td><td class="num">0.9932</td><td class="num">6/200 (3.0%)</td><td class="num">1/50 (2%)</td><td><span class="tag warn">exploratory · test reused</span></td></tr>
+              <tr><td>+ lagged covariance</td><td class="num">2.5%</td><td class="num">0.9958</td><td class="num">7/200 (3.5%)</td><td class="num">0/50 (0%)</td><td><span class="tag warn">exploratory · test reused</span></td></tr>
+              <tr class="hl"><td>lagcov + mean/two-template blend</td><td class="num">0.0%</td><td class="num">1.0000</td><td class="num">3/200 (1.5%)</td><td class="num">0/50 (0%)</td><td><span class="tag good">selected · test reused</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="note warn" style="margin-top:14px">
+          <p><b>The zero rejections are real for these five people, but the false-accept rate still exceeds target.</b> The frozen threshold yields 1.5% test FAR against a 1% goal, and six of the seven false accepts across the lagcov variants target identity 26. Perfect separation of a small reused score set does not establish perfect authentication, and no threshold was re-chosen from the test gap.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid g2" style="margin-top:16px">
+      <div class="card pad-lg">
+        <h3>The hard user, before and after</h3>
+        <p class="sub">False-reject rate per test user. Muted bars: the old accel baseline. Solid bars: the lagcov + blend method. User 6 — refused 8 of 10 claims before — now passes all ten.</p>
+        <div class="chart" id="chart-crossday-users"></div>
+        <div class="note good" style="margin-top:14px">
+          <p><b>The 22% aggregate FRR was never a population average.</b> It was one person at 80% and everyone else near zero. The lagcov backend pulled user 6 into full separation, which is why the aggregate moved to zero.</p>
+        </div>
+      </div>
+
+      <div class="card pad-lg">
+        <h3>Error budget on the selected threshold</h3>
+        <p class="sub">Threshold −0.7250201527062856, accept iff <code>score ≥ threshold</code>, calibrated on CALIB users only and never changed after test scoring.</p>
+        <div class="chart" id="chart-crossday-budget"></div>
+        <div class="grid g2" style="margin-top:10px">
+          <div>
+            <div class="label" style="color:var(--text-faint);font-size:11.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase">Test result</div>
+            <div style="font-size:26px;font-weight:700;letter-spacing:-.02em;margin-top:4px">0.0% EER</div>
+            <div class="mini">ROC AUC 1.0 · FAR 1.5% (3/200) · FRR 0% (0/50)</div>
+          </div>
+          <div>
+            <div class="label" style="color:var(--text-faint);font-size:11.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase">From the old baseline</div>
+            <div style="font-size:26px;font-weight:700;letter-spacing:-.02em;margin-top:4px">7.0% EER</div>
+            <div class="mini">FAR 0.5% (1/200) · FRR 22% (11/50) · one user refused 8/10</div>
+          </div>
+        </div>
+        <div class="note bad" style="margin-top:16px">
+          <p><b>What this still does not establish.</b> Five reused test identities; no independent confirmation; controlled leg-mounted sensor, not a phone; no confidence interval; no takeover-delay measurement. The FAR of 1.5% is above the intended 1%.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid g2" style="margin-top:16px">
+      <div class="card pad-lg">
+        <h3>Multisensor representation: fusion wins development</h3>
+        <p class="sub">Thirty sensor/representation/enrollment candidates on five development subject folds. Only the key arms are shown; the full thirty remain in the evidence. Mean development EER, lower is better.</p>
+        <div class="chart" id="chart-multisensor"></div>
+        <div class="mini">Accelerometer + gyroscope axes with rotation-invariant descriptors, training-only WCCN(automatic), two angular medoid templates scored by maximum cosine. The winner needed no final neural training.</div>
+      </div>
+
+      <div class="card pad-lg">
+        <h3>Backend: lagged covariance wins</h3>
+        <p class="sub">Six backends over twenty unique held-out triples (four balanced five-fold partitions). Mean EER, lower is better. The historical baseline is shown for reference.</p>
+        <div class="chart" id="chart-backend"></div>
+        <div class="mini">Lagged covariance (362-dimensional descriptor) won at 4.874% versus 5.885% for the multisensor control and 8.897% for the historical accel baseline under the same twenty splits.</div>
+      </div>
+    </div>
+
+    <div class="grid g2" style="margin-top:16px">
+      <div class="note good">
+        <p><b>What this study does establish.</b> Cross-day verification is <i>measurable</i> and <i>improvable</i> under a frozen protocol: a change to representation and backend moved the same five test users from 7.0% to 0.0% EER and from 11 to 0 genuine rejections, without re-tuning the threshold on test data. Selection happened on development folds and separate calibration users.</p>
+      </div>
+      <div class="note warn">
+        <p><b>Why it is not yet a deployment claim.</b> The test cohort is the same five people seen before, so the improvement is partly a confirmation that the new features separate an already-observed population — not proof of generalisation to unseen people. The false-accept rate is still above target. Fresh repeated-session phone data remain the blocker.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ CALIBRATION ============================ -->
+  <section id="calib">
+    <div class="sec-head">
+      <span class="kicker">05 · Calibration</span>
+      <h2>A pooled threshold and a twelve-person refit lower the development false-accept rate</h2>
+      <p>Separate from the hillclimb, this DEV-only study asks whether the operating point can be chosen more reliably. Twenty outer validation triples come from four balanced five-fold partitions of fifteen development people; each split holds out three people for calibration and three for validation, and fits the metric on the remaining nine (or twelve, for the refit). The promotion gate was fixed before fitting: blend FAR ≤ 1%, no increase in splits above 2% FAR, strictly lower mean FRR, and at least ten people no worse.</p>
+    </div>
+
+    <div class="grid g2">
+      <div class="card pad-lg">
+        <h3>Calibration policy comparison (blend scorer)</h3>
+        <p class="sub">Mean FAR and mean FRR across twenty development splits. Policy C — the pooled threshold applied to a twelve-person refit — was the sole eligible replacement.</p>
+        <div class="chart" id="chart-calibration"></div>
+        <div class="legend">
+          <span class="item"><span class="swatch" style="background:var(--c-base)"></span>mean FAR (lower is better)</span>
+          <span class="item"><span class="swatch" style="background:var(--c-accent)"></span>selected policy C</span>
+        </div>
+      </div>
+
+      <div class="card pad-lg">
+        <h3>What policy C changes, and what it does not</h3>
+        <div class="grid g2" style="margin-top:4px">
+          <div>
+            <div class="label" style="color:var(--text-faint);font-size:11.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase">Mean FAR</div>
+            <div style="font-size:28px;font-weight:700;letter-spacing:-.02em;margin-top:2px">0.917% → 0.836%</div>
+            <div class="mini">97/11,600 vs 11/1,200 exact</div>
+          </div>
+          <div>
+            <div class="label" style="color:var(--text-faint);font-size:11.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase">Mean FRR</div>
+            <div style="font-size:28px;font-weight:700;letter-spacing:-.02em;margin-top:2px">19.28% → 15.13%</div>
+            <div class="mini">329/2,175 vs 559/2,900 exact</div>
+          </div>
+        </div>
+        <div class="note info" style="margin-top:16px">
+          <p><b>The concentrated-false-accept diagnostic triggered.</b> Eight of the prior blend's eleven development false accepts sit in two directed person pairs. This flags claimant normalization as the next bounded research question; no normalization arm was added here, and those repeated decisions are not eleven independent people.</p>
+        </div>
+        <div class="note warn" style="margin-top:12px">
+          <p><b>Per-person limits remain.</b> Five people improve, seven tie, three worsen under C. Identity 9 is still completely rejected (100% mean FRR) and identity 5 stays at 67.5%. Passing the aggregate gate does not establish usable authentication for everyone.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid g2" style="margin-top:16px">
+      <div class="note good">
+        <p><b>What it establishes.</b> A pooled threshold plus a twelve-person refit passes a fixed promotion gate on development data: lower mean FAR and FRR with no increase in bad-split count. Exact rational arithmetic is used throughout, and no original CALIB or TEST numerical payload was opened — this study neither changes the earlier frozen threshold nor establishes a better TEST FAR.</p>
+      </div>
+      <div class="note warn">
+        <p><b>What it does not.</b> These are descriptive results from overlapping development splits, not new held-out or population estimates. The order-statistic reference policy (D) assumes independent calibration observations, which does not hold for dependent pooled gait scores. Two hundred historical CPU covariance fits were run in total after a discarded first attempt.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ SCALING ============================ -->
+  <section id="scale">
+    <div class="sec-head">
+      <span class="kicker">06 · Subject generalisation</span>
+      <h2>Bigger encoders did not help; simpler features did</h2>
+      <p>Forty-eight complete runs tested a matched size × objective factorial on subject folds rather than random windows: width 32 vs 96, linear vs ArcFace identity heads, three subject folds × two seeds × exactly 40 epochs per neural run, with the source test split never loaded. Larger encoders helped WISDM slightly and made HAR slightly worse, and both lost to descriptor baselines.</p>
+    </div>
+
+    <div class="grid g2">
+      <div class="card pad-lg span2">
+        <div class="chart-head">
+          <div>
+            <h3>Mean development-fold EER by candidate</h3>
+            <p class="sub">Whiskers are fold standard deviation (dependent fold variation, not a confidence interval). Development folds only — the source test split was never loaded in this study.</p>
+          </div>
+        </div>
+        <div class="chart" id="chart-scaling"></div>
+        <div class="legend">
+          <span class="item"><span class="swatch" style="background:var(--c-base)"></span>UCI HAR</span>
+          <span class="item"><span class="swatch" style="background:var(--c-explore)"></span>WISDM AR v1.1</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Relative development error reduction</h3>
+        <p class="sub">Against the small linear-head comparator, on the same folds.</p>
+        <div class="grid g2" style="margin-top:6px">
+          <div>
+            <div class="label" style="color:var(--text-faint);font-size:11.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase">UCI HAR</div>
+            <div style="font-size:28px;font-weight:700;letter-spacing:-.02em;margin-top:2px">−36.0%</div>
+            <div class="mini">18.203% → 11.647% (features_standard)</div>
+          </div>
+          <div>
+            <div class="label" style="color:var(--text-faint);font-size:11.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase">WISDM v1.1</div>
+            <div style="font-size:28px;font-weight:700;letter-spacing:-.02em;margin-top:2px">−31.9%</div>
+            <div class="mini">18.560% → 12.633% (features_wccn_0.2)</div>
+          </div>
+        </div>
+        <div class="note info" style="margin-top:14px">
+          <p><b>Read this study as a development result.</b> Earlier work already inspected the HAR and WISDM test cohorts; this work does not relabel them as fresh. Four users per source are excluded from every optimizer and reporting fold, and calibration happens after selection.</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Why this matters for the next step</h3>
+        <ul class="tight" style="margin-top:8px">
+          <li><b>Descriptor methods beat larger neural encoders on both sources</b> when the problem is framed as subject generalisation rather than window discrimination.</li>
+          <li>The same descriptor family (<code>wccn_auto</code>) is what won the locked cross-day study — the two independent lines of evidence point the same way.</li>
+          <li><b>Careful:</b> these are development folds. Fold SDs of 6–10 percentage points mean the ranking is fragile and the margins between the top candidates are small.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="grid g2" style="margin-top:16px">
+      <div class="card pad-lg span2">
+        <h3>Rotation-invariant descriptors transfer to HAR and WISDM</h3>
+        <p class="sub">A development-only invariance ablation: replacing axis-aligned descriptors with rotation-invariant ones improves mean subject-fold EER on both sources. Within-recording subject folds, not fresh cross-day or TEST results.</p>
+        <div class="chart" id="chart-transfer"></div>
+        <div class="legend">
+          <span class="item"><span class="swatch" style="background:var(--c-base)"></span>axis-aligned</span>
+          <span class="item"><span class="swatch" style="background:var(--c-explore)"></span>rotation-invariant</span>
+          <span class="item"><span class="swatch" style="background:var(--c-warn)"></span>fusion (axis + invariant)</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ PERFORMANCE ============================ -->
+  <section id="perf">
+    <div class="sec-head">
+      <span class="kicker">07 · Cost</span>
+      <h2>What it costs to run</h2>
+      <p>Data loading was rewritten for throughput, inference latency was measured on CPU and GPU, a compression experiment was run on the activity model, and the multisensor cross-day winner was timed against its baseline. Two of these results are clean wins; the compression experiment is a documented failure, and the accuracy gain has a measured latency cost.</p>
+    </div>
+
+    <div class="grid g2">
+      <div class="card pad-lg">
+        <h3>Preprocessing: 15.72× faster, identical output</h3>
+        <p class="sub">100,000 rows, window 128 / stride 64, three runs each, medians shown. Output equality was checked, not assumed.</p>
+        <div class="chart" id="chart-preproc"></div>
+        <div class="mini">The rewrite is a vectorised load path over the same windows; the produced windows are bit-identical to the pandas baseline.</div>
+      </div>
+
+      <div class="card pad-lg">
+        <h3>Training and inference throughput</h3>
+        <p class="sub">Log scale. CPU on two threads, CUDA on an RTX 5070 Ti; warm-up batches excluded, medians over repeated batches.</p>
+        <div class="chart" id="chart-throughput"></div>
+        <div class="legend">
+          <span class="item"><span class="swatch" style="background:var(--c-base)"></span>CPU (2 threads)</span>
+          <span class="item"><span class="swatch" style="background:var(--c-accent)"></span>CUDA (RTX 5070 Ti)</span>
+        </div>
+      </div>
+
+      <div class="card pad-lg">
+        <h3>Inference latency vs model size</h3>
+        <p class="sub">Resident input, FP32, five warm-up batches, 30 timed repetitions. Excludes input transfer, data loading and scoring.</p>
+        <div class="chart" id="chart-latency"></div>
+        <div class="note warn" style="margin-top:12px">
+          <p><b>Fewer parameters, more time.</b> The new ensemble stores 86,916 parameters against the baseline's 174,720 (the old count includes an unused DAE decoder) but is slower, because many small multiscale operations and three forwards add dispatch cost. Optional branch packing cuts CUDA batch-1 latency from 4.693 ms to 3.687 ms (1.27×) while growing the stored ensemble to 126,084 parameters and slowing CPU batch-128 from 76.5 ms to 92.8 ms. <b>No blanket speed-up, phone-energy or on-device claim is made.</b></p>
+        </div>
+      </div>
+
+      <div class="card pad-lg">
+        <h3>Compression experiment — a documented failure</h3>
+        <p class="sub">Pruning the activity model bought size and cost accuracy. The accuracy loss was far too large to ship, so the branch is reported, not adopted.</p>
+        <div class="chart" id="chart-compression"></div>
+        <div class="note bad" style="margin-top:12px">
+          <p><b>Test activity accuracy fell from 95.31% to 66.41%</b> (−30.3%) while parameters halved and FLOPs dropped by half. The size win is real; the accuracy loss is not acceptable, so the compressed model is not part of the pipeline.</p>
+        </div>
+      </div>
+
+      <div class="card pad-lg">
+        <h3>Multisensor winner: an accuracy/latency trade-off</h3>
+        <p class="sub">Resident raw-window-to-embedding CPU latency, batch one, thirty timed repetitions on two CPU threads. The cross-day winner is measurably slower than the acceleration baseline it replaces.</p>
+        <div class="chart" id="chart-runtime"></div>
+        <div class="note warn" style="margin-top:12px">
+          <p><b>5.2× slower at batch one, not a speed-up.</b> The multisensor winner needs 5.73 ms per window against the accel baseline's 1.11 ms (batch-32: 13.79 ms vs 4.27 ms). This is the measured cost of the accuracy gain, not an execution optimisation. Feature extraction, fixed projection and normalization are timed; sensor acquisition, file loading, enrollment/claim scoring and phone energy are excluded.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ READING ============================ -->
+  <section id="read">
+    <div class="sec-head">
+      <span class="kicker">08 · Interpretation</span>
+      <h2>What this project shows, and what it does not</h2>
+      <p>The honest summary of a project at this stage: the pipeline works, the protocol is disciplined, cross-day verification improved dramatically overnight, and the deployment claims are still not earned — the biggest gains reuse a small already-inspected cohort.</p>
+    </div>
+
+    <div class="grid g3">
+      <div class="card" style="border-color:color-mix(in srgb, var(--c-good) 40%, var(--border-soft))">
+        <h3 style="color:var(--c-good)">Supported by the evidence</h3>
+        <ul class="tight" style="margin-top:8px">
+          <li>WISDM walking verification error more than halved (20.10% → 9.58%) under a validation-locked, test-read-once protocol, with ROC AUC 0.9622.</li>
+          <li>Cross-day verification on the same five test users moved from 7.0% EER / 22% FRR to 0.0% EER / 0% FRR with a multisensor + lagcov + blend pipeline — the formerly-refused user now passes all ten claims.</li>
+          <li>A pooled-threshold calibration policy (C) lowered development mean FAR from 0.917% to 0.836% and mean FRR from 19.28% to 15.13% under a fixed promotion gate.</li>
+          <li>Subject-fold studies consistently favour descriptor methods over larger neural encoders, and rotation-invariant descriptors transfer to both HAR and WISDM.</li>
+          <li>Data loading is 15.72× faster with bit-identical output; training and inference scale to a single consumer GPU.</li>
+        </ul>
+      </div>
+      <div class="card" style="border-color:color-mix(in srgb, var(--c-warn) 40%, var(--border-soft))">
+        <h3 style="color:var(--c-warn)">Not yet established</h3>
+        <ul class="tight" style="margin-top:8px">
+          <li>Phone-based or wearable-based authentication of any kind.</li>
+          <li>Continuous passive authentication, online takeover detection or a usable false-accept operating point (the best cross-day FAR is still 1.5%, above the 1% target).</li>
+          <li>Generalisation beyond the five cross-day test users — the 0.0% EER result reuses the same people inspected earlier, so it is not a blind evaluation.</li>
+          <li>A fresh held-out cohort for the exploratory HAR descriptor result (10.44% EER), which reused a test cohort that had already been inspected.</li>
+          <li>Any on-device latency or energy claim; the multisensor winner is 5.2× slower than baseline at batch one.</li>
+        </ul>
+      </div>
+      <div class="card" style="border-color:color-mix(in srgb, var(--c-bad) 40%, var(--border-soft))">
+        <h3 style="color:var(--c-bad)">Known weaknesses to fix first</h3>
+        <ul class="tight" style="margin-top:8px">
+          <li><b>The frozen false-accept rate still exceeds target.</b> Six of seven lagcov false accepts target identity 26, and no threshold was re-chosen from the test gap.</li>
+          <li><b>Calibration per-person failures persist.</b> Identity 9 is still 100% rejected and identity 5 stays near 67.5% under policy C — the aggregate gate hides unusable individuals.</li>
+          <li>The HAR neural winner generalised worse than the baseline it replaced, and the ensemble's advantage is unproven on that dataset.</li>
+          <li>Random-pair EER is not an authentication protocol; enrollment and session behaviour are only approximated.</li>
+          <li>Legacy numeric WISDM CSV labels remain unnamed and unverified; only the explicit <code>wisdm_v1</code> mapping to the official AR v1.1 release is verified.</li>
+          <li>Overlapping windows are not independent, and pair draws use replacement — variance estimates are descriptive only.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="sec-head" style="margin-top:28px">
+      <h2 style="font-size:19px">Recommended next steps</h2>
+      <p>Ordered by what unblocks the most, not by what is most interesting.</p>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <h4>Confirm the cross-day win on a fresh cohort</h4>
+        <p>The 0.0% EER reuses five already-inspected users. Recruit a new repeated-session phone cohort to turn the exploratory result into a blind one — this is the single highest-value next step.</p>
+      </div>
+      <div class="step">
+        <h4>Study claimant normalization</h4>
+        <p>Eight of eleven development false accepts concentrate in two directed person pairs, and six of seven lagcov test accepts target one user. A normalization arm is the next bounded research question.</p>
+      </div>
+      <div class="step">
+        <h4>Fix the calibration per-user floor</h4>
+        <p>Identity 9 is still 100% rejected and identity 5 stays near 67.5% under policy C. Until a per-user floor exists, continuous authentication is not deployable for everyone.</p>
+      </div>
+      <div class="step">
+        <h4>Reproduce the merged pipeline locally</h4>
+        <p>Pull the merged branches and re-run the full pipeline end to end, so the WISDM identity handling and the cross-day numbers are independently reproduced rather than inherited from pull requests.</p>
+      </div>
+      <div class="step">
+        <h4>Regenerate processed WISDM with subject IDs</h4>
+        <p>Re-export WISDM with subject identifiers attached, verify the old numeric labels' semantics, and record session boundaries instead of inferring identity from row order.</p>
+      </div>
+      <div class="step">
+        <h4>Decide the target device</h4>
+        <p>Phone, wrist-worn or ankle-worn changes the windowing, sensor noise and energy budget — and the winner is already 5.2× slower. Optimising latency before that decision is wasted effort.</p>
+      </div>
+    </div>
+
+    <div style="margin-top:26px">
+      <details class="method">
+        <summary>Methodology notes and protocol details</summary>
+        <div>
+          <p><b>Verification protocol.</b> Held-out-subject, within-recording discrimination. Development and test subjects are disjoint; validation windows never fit normalisation or the identity classifier. Scores are cosine similarity minus one, higher is more genuine, with 10,000 balanced same-activity comparisons drawn subject-uniform with replacement (5,000 genuine / 5,000 impostor).</p>
+          <p><b>Thresholds.</b> The deployment threshold is selected on validation to target FAR ≤ 1% and then frozen; the test split reports FAR and FRR at that frozen threshold, which does not promise a 1% test FAR. EER is computed independently, and the nearest empirical crossing is labelled as a non-deployable evaluation point.</p>
+          <p><b>Cross-day protocol.</b> Santos v7, controlled leg-mounted short walks over two days. Participant split (15 development / 5 calibration / 5 test) was fixed from directory metadata before signal inspection. Enrollment uses day 1 only, probing uses day 2 only. Coverage reflects supplied comparisons; exhaustive coverage is not verified.</p>
+          <p><b>Activity protocol.</b> Six classes on UCI HAR (walking, upstairs, downstairs, sitting, standing, laying). The current sweep selects the checkpoint on validation activity loss; the historical numbers selected on training loss. 2,947 test windows.</p>
+          <p><b>Reproducibility caveats.</b> Single-seed where noted; CUDA bitwise determinism is not guaranteed; validation was used for both checkpoint selection and threshold calibration; pair draws use replacement and overlapping raw windows are not independent; descriptive counts only, with no confidence intervals.</p>
+        </div>
+      </details>
+      <details class="method">
+        <summary>Source artefacts and how to re-read them</summary>
+        <div>
+          <p>Every number in this report is reproduced from committed artefacts in <code>VariableThe/gait-biometrics</code> at commit <code>4014d85</code>:</p>
+          <p><code>reports/2026-10-23/</code> — baseline study: summary.json, training histories, preprocessing and throughput benchmarks.<br>
+             <code>reports/2026-10-23-quality/</code> — primary 36-run study, secondary HAR subject-CV study, per-epoch histories, selection locks.<br>
+             <code>reports/2026-10-23-scaling/</code> — 48-run size × objective factorial with fold detail.<br>
+             <code>reports/2026-10-23-cross-day/</code> — the original locked cross-day protocol.<br>
+             <code>reports/2026-10-24-hillclimb/</code> — multisensor, backend, operating-point and transfer studies; the updated cross-day comparison.<br>
+             <code>reports/2026-10-24-calibration/</code> — pooled-threshold DEV calibration comparison (policy C).</p>
+          <p>The pipeline lives in <code>engine/</code>, the WISDM adapter in <code>data/adapter.py</code> (source <code>wisdm_v1</code>, official <code>WISDM_ar_v1.1_raw.txt</code>), and the Student C evaluation harness in <code>engine/evaluate.py</code>.</p>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  <footer class="rep">
+    <div>Prepared for the minor specialisation project team · source <code>VariableThe/gait-biometrics</code> @ <code>4014d85</code> · generated 24 October 2026</div>
+    <div>Datasets: UCI HAR, WISDM AR v1.1 (official release, archive SHA256 <code>e5737912…592d7</code>), Santos v7 leg-mounted protocol. All numbers are measured values from committed artefacts, not projections.</div>
+    <div>Negative results, exploratory labels and protocol caveats are reproduced here as they appear in the source reports.</div>
+  </footer>
+
+</div>
+
+<script>window.REPORT_DATA = /*__DATA__*/;</script>
+<script>/*__JS__*/</script>
+</body>
+</html>

@@ -1,0 +1,95 @@
+# Work that does not need another dataset
+
+This register tracks the 24 October engineering follow-up. Published biometric
+results remain descriptive; new software does not retroactively validate them.
+
+| Problem | Implementation / evidence | Status |
+| --- | --- | --- |
+| Evaluation precision, finite values and checkpoint shape validation | [Numerical validation](numerical_validation.md) | Implemented and tested |
+| Recoverable metric-training interruptions | [Metric resume](metric_resume.md) | Exact CPU and local deterministic FP32 CUDA equivalence verified |
+| Causal decisions, silence expiry and latched fallback | [Policy](continuous_auth.md), [strict stream/evaluation](stream_authentication.md) | Implemented and tested |
+| Fractional training options and late validation failures | [Training validation](training_validation.md) | Fixed before optimization |
+| Partial HAR extraction mistaken for complete setup | [Dataset repair](training_validation.md) | Fixed; generated-archive regressions pass |
+| Verification windows sharing raw sensor samples | [Raw provenance](window_provenance.md) | Implemented; existing WISDM TRAIN parity/nonoverlap verified |
+| Claimant score scales at a low FAR operating point | [Fixed raw/Z/S comparison](claimant_normalization.md) | 100 fits replayed; alternatives fail gates, retain raw |
+| Walking activity gate | [Source-bound detector](walking_gate.md) | One registered TRAIN-only fit and held DEV validation |
+| Raw window → gate → encoder → template score → decision | [Window adapter](window_authentication.md) | Implemented; explicit single-window calibration required |
+| Reproducible CPU/CUDA environments and automated checks | [Environment/CI](reproducible_environment.md) | Frozen CPU installation and both repository suites pass; dated audits pass |
+
+The [follow-up report](../reports/2026-10-24-engineering/README.md) retains all
+negative/positive DEV evidence, per-person limits, hashes, source snapshots and
+validation logs. These are opt-in protocols; old metrics are not rewritten.
+
+The [25 October follow-up](../reports/2026-10-25-robustness/README.md) adds frozen
+full/log-covariance baselines, deterministic source-bound sensor perturbations
+and timed takeover simulations. Neither covariance arm passes promotion. Probe
+rotation/noise substantially increases rejection; orientation/noise robustness
+remains a measurable research problem using existing data. Simulated recording
+resets demonstrate bounded expiry and preserve short-follow-up censoring.
+
+The [canonical orientation comparison](../reports/2026-10-25-canonical/README.md)
+nominates Canonical362 under the clean low-FAR gates and substantially reduces
+the measured constant-coordinate-rotation sensitivity. Mean EER worsens, five
+users have higher rejection, and gain/noise sensitivity remains unresolved.
+This is a DEV nomination; real phone relocation, time-varying orientation and
+single-window live thresholds remain unvalidated.
+
+The [paired nuisance-covariance study](../reports/2026-10-25-nuisance/README.md)
+reduces the fixed gain/noise objective FRR from 45.607% to 15.241%, with fourteen
+people improving and one tied. It fails thirteen safety gates: clean error
+rates/EER and some stressed fold/claimant false accepts worsen. Retain the
+canonical baseline; severe noise and the fully rejected DEV person remain open.
+All 200 fits, 440 scores and 541 geometry contexts verify.
+
+The [cycle feasibility follow-up](../reports/2026-10-25-cycle/README.md) tests
+1,280 fixed synthetic windows before fitting a cycle baseline. Short support,
+missing boundaries, degenerate channels and half-stride aliases require a new
+protocol. The [exact gated ROC utility](gated_roc.md) now retains failed claims,
+reports undefined crossings honestly and avoids floating-point equality errors.
+Longer contiguous support and matched validity-gated canonical controls remain
+research options using existing DEV recordings; no cycle DEV fit is claimed.
+
+The [long-support recreation](../reports/2026-10-25-cycle-length/README.md)
+reduces missing pairs from 192 to one in the fixed synthetic grid. A targeted
+twelve-fixture plateau convention clears the remaining strict-minimum tie, with
+guards and half-period aliases retained. It is not a full-grid plateau result
+or a cycle DEV comparison. Matched support, enrollment aggregation, long-window
+coverage and anatomical ambiguity remain unresolved research decisions.
+
+The [metadata-only support inventory](../reports/2026-10-25-support/README.md)
+resolves the fixed768 coverage question: only subject 9/day 1/trial 8 has a
+complete block, so no identity has both-day support and no registered training
+owner passes the proposed count flag. This protocol cannot retain the cohort.
+Complete segments preserve raw support for all fifteen people and all historical
+trials, adding 33,810 valid tail rows; 29 fragments are shorter than 256 samples.
+A separate canonical experiment evaluates one fixed eligible-support/control rule below.
+Cycle extraction and partial-failure/enrollment rules remain open. Subject 19's fragmented day2 trial remains outside the old claim
+graph. No cycle DEV fit or authentication threshold change is implied.
+
+The [joint-repeat comparison](../reports/2026-10-25-joint-repeat/README.md) resolves the stipulated synthetic half-period lag using gyro evidence, with missing boundaries and noise-only finite outputs retained. All 8,640 records and complete numeric arrays replay. This does not change the authentication nominee. The subsequent N446 linear, endpoint-exclusive waveform addendum fails its fixed synthetic gate and stops. Matched support, source-row perturbations and complete failed-claim denominators remain required.
+
+The [N446 waveform addendum](../reports/2026-10-25-native-waveform/README.md) is now **stopped**: four of 960 required nondegenerate fixtures have no admissible pair despite correct lag selection. Its fixed all-960 gate fails; no duration adjustment, fallback, longer window or repaired rerun is allowed under this registration. Both portable numeric replays retain STOP. The separate nonsegmented comparison below has completed without changing this stop.
+
+The [nonsegmented full-support comparison](../reports/2026-10-25-full-support/README.md) is complete. Its 299 eligible historical trials add 32,600 distinct rows using 885 covers with exact multiplicity weights. The full-support estimator worsens clean equal-fold FRR by `133/8700` (1.528736 percentage points) against the matched aggregation control and fails 14 of 33 replacement gates against frozen Canonical362. All 121 preflight contexts, 11,373 required windows, 200 new fits, 100 restored reference models and 660 score sets verify; an independent read-only audit reproduces the score sets bit for bit. Canonical362 remains selected, subject 9 remains completely rejected, and gain/noise sensitivity persists. This tests one support/aggregation policy on reused DEV; it establishes neither a pure tail-row effect nor independent generalization.
+
+## Limits that software cannot remove
+
+The anonymous legacy WISDM CSVs have no identity mapping; the authentic v1 loader
+is the supported identity source. Released HAR windows do not provide enough
+source offsets to certify independent sessions or raw-sample separation.
+Contiguous WISDM segments do not establish independent recording days.
+
+Previously inspected TEST users cannot provide a fresh confirmation. Small
+cohorts and dependent directed claims cannot certify a population FAR of 1%.
+Controlled leg recordings cannot establish phone placement robustness, battery
+cost, real device takeover behavior or spoof resistance. Those claims require
+appropriate additional observations or hardware measurements.
+
+## Historical reproduction
+
+Numerical validation fixes change source fingerprints intentionally. Keep every
+published registration and failed attempt intact. To replay the earlier
+hillclimb and pooled-calibration reports, use the source commit recorded in
+their report, or the main repository's complete pre-follow-up merge commit
+`4014d85e3c1962c3d27f5f425b2b6cc6e7fc6175`. Run that checkout in its own
+environment; do not overwrite historical hash manifests with current hashes.

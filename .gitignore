@@ -1,0 +1,20 @@
+.DS_Store
+.venv/
+datasets/
+runs/
+__pycache__/
+*.pyc
+*.pth
+*.pt
+*.onnx
+*.onnx.data
+*.pdf
+# The final results-review report is a deliverable and is committed.
+!report/gait-biometrics-results-review.pdf
+# Dataset archive (see link.md); downloaded locally, never committed.
+CI-2026.zip
+
+# Public source downloads and per-machine experiment artifacts.
+.dataset-cache/
+artifacts/
+datasets

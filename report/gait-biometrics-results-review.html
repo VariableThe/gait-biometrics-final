@@ -1,0 +1,1678 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gait-based continuous authentication — measured results review</title>
+<meta name="description" content="Evidence-first review of the gait-biometrics pipeline: verification error, activity classification, a locked cross-day study, subject-generalisation scaling and runtime cost.">
+<style>:root {
+  --bg: #0a0e14;
+  --bg-soft: #0f151d;
+  --surface: #121a24;
+  --surface-2: #17212d;
+  --border: #22303f;
+  --border-soft: #1a2532;
+  --text: #e8eef6;
+  --text-dim: #9fb0c2;
+  --text-faint: #6b7d90;
+  --accent: #2dd4bf;
+  --accent-soft: rgba(45, 212, 191, 0.14);
+  --c-base: #64748b;
+  --c-good: #34d399;
+  --c-warn: #fbbf24;
+  --c-bad: #f87171;
+  --c-explore: #a78bfa;
+  --c-cross: #38bdf8;
+  --c-accent: #2dd4bf;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 28px rgba(0, 0, 0, 0.28);
+  --radius: 14px;
+  --mono: ui-monospace, "SFMono-Regular", "JetBrains Mono", Menlo, Consolas, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+html[data-theme="light"] {
+  --bg: #f4f6f9;
+  --bg-soft: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #f1f4f8;
+  --border: #d9e0e8;
+  --border-soft: #e6ebf1;
+  --text: #101822;
+  --text-dim: #4a5a6b;
+  --text-faint: #7a8a9b;
+  --accent: #0d9488;
+  --accent-soft: rgba(13, 148, 136, 0.1);
+  --c-base: #94a3b8;
+  --c-good: #059669;
+  --c-warn: #b45309;
+  --c-bad: #dc2626;
+  --c-explore: #7c3aed;
+  --c-cross: #0284c7;
+  --c-accent: #0d9488;
+  --shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 10px 30px rgba(15, 23, 42, 0.08);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+body { padding-bottom: 80px; }
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ---------- Top bar ---------- */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 10px 22px;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 650; letter-spacing: -0.01em; white-space: nowrap; }
+.brand .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
+.brand small { color: var(--text-faint); font-weight: 500; }
+
+nav.sections { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; flex: 1; }
+nav.sections::-webkit-scrollbar { display: none; }
+nav.sections a {
+  padding: 6px 11px;
+  border-radius: 8px;
+  color: var(--text-dim);
+  font-size: 13px;
+  font-weight: 550;
+  white-space: nowrap;
+}
+nav.sections a:hover { background: var(--surface-2); color: var(--text); text-decoration: none; }
+nav.sections a.active { background: var(--accent-soft); color: var(--accent); }
+
+.tools { display: flex; gap: 6px; }
+.iconbtn {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 32px; padding: 0 11px;
+  background: var(--surface); color: var(--text-dim);
+  border: 1px solid var(--border); border-radius: 9px;
+  font: inherit; font-size: 12.5px; font-weight: 550; cursor: pointer;
+}
+.iconbtn:hover { color: var(--text); border-color: var(--accent); }
+.iconbtn .glyph { font-size: 13px; line-height: 1; }
+
+/* ---------- Layout ---------- */
+.wrap { max-width: 1120px; margin: 0 auto; padding: 0 22px; }
+
+.hero { padding: 52px 0 30px; }
+.hero h1 {
+  margin: 0 0 12px;
+  font-size: clamp(28px, 4.4vw, 42px);
+  line-height: 1.12;
+  letter-spacing: -0.025em;
+  font-weight: 700;
+}
+.hero p.lede { margin: 0 0 20px; max-width: 74ch; color: var(--text-dim); font-size: 16.5px; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 5px 11px; border-radius: 999px;
+  background: var(--surface); border: 1px solid var(--border);
+  color: var(--text-dim); font-size: 12.5px; font-weight: 550;
+}
+.chip b { color: var(--text); font-weight: 650; }
+.chip .pip { width: 7px; height: 7px; border-radius: 50%; }
+
+section { padding: 38px 0 8px; scroll-margin-top: 64px; }
+.sec-head { margin-bottom: 20px; }
+.kicker {
+  display: inline-block; margin-bottom: 8px;
+  font: 600 11.5px/1 var(--mono); letter-spacing: 0.13em; text-transform: uppercase;
+  color: var(--accent);
+}
+.sec-head h2 { margin: 0 0 6px; font-size: 23px; letter-spacing: -0.02em; font-weight: 680; }
+.sec-head p { margin: 0; color: var(--text-dim); max-width: 82ch; font-size: 14.5px; }
+
+.grid { display: grid; gap: 16px; }
+.g2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.g3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.g4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.g6 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.span2 { grid-column: 1 / -1; }
+
+@media (max-width: 1020px) {
+  .g2, .g3, .g4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .g6 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 660px) {
+  .g2, .g3, .g4 { grid-template-columns: minmax(0, 1fr); }
+  .g6 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* ---------- Cards ---------- */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  padding: 18px 20px 16px;
+  box-shadow: var(--shadow);
+}
+.card.pad-lg { padding: 22px 24px 20px; }
+.card h3 { margin: 0 0 4px; font-size: 15.5px; font-weight: 650; letter-spacing: -0.01em; }
+.card .sub { margin: 0 0 14px; color: var(--text-faint); font-size: 12.5px; }
+
+.kpi { position: relative; overflow: hidden; }
+.kpi .label { color: var(--text-faint); font-size: 11.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+.kpi .value { margin: 6px 0 2px; font-size: 30px; font-weight: 700; letter-spacing: -0.03em; line-height: 1.05; }
+.kpi .value .unit { font-size: 16px; font-weight: 600; color: var(--text-dim); margin-left: 2px; }
+.kpi .foot { color: var(--text-faint); font-size: 12.5px; }
+.kpi .delta { display: inline-flex; align-items: center; gap: 4px; margin-top: 8px; padding: 3px 8px; border-radius: 999px; font-size: 12px; font-weight: 650; }
+.k-good { background: color-mix(in srgb, var(--c-good) 16%, transparent); color: var(--c-good); }
+.d-bad { background: color-mix(in srgb, var(--c-bad) 16%, transparent); color: var(--c-bad); }
+.d-warn { background: color-mix(in srgb, var(--c-warn) 16%, transparent); color: var(--c-warn); }
+.d-flat { background: var(--surface-2); color: var(--text-dim); }
+
+/* ---------- Chart ---------- */
+.chart-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin-bottom: 6px; }
+.chart-head h3 { margin: 0; }
+.chart-head .sub { margin: 3px 0 0; }
+.seg { display: inline-flex; background: var(--surface-2); border: 1px solid var(--border-soft); border-radius: 9px; padding: 2px; }
+.seg button {
+  border: 0; background: transparent; color: var(--text-dim);
+  font: inherit; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 7px; cursor: pointer;
+}
+.seg button.on { background: var(--accent); color: #06231f; }
+html[data-theme="light"] .seg button.on { color: #fff; }
+.chart { width: 100%; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 12px; }
+.legend .item { display: inline-flex; align-items: center; gap: 7px; color: var(--text-dim); font-size: 12.5px; }
+.legend .swatch { width: 11px; height: 11px; border-radius: 3px; }
+.legend .swatch.line { height: 3px; width: 16px; border-radius: 2px; }
+
+.tip {
+  position: fixed; z-index: 90; pointer-events: none;
+  background: color-mix(in srgb, var(--surface) 96%, transparent);
+  border: 1px solid var(--border); border-radius: 10px;
+  padding: 8px 11px; box-shadow: var(--shadow);
+  font-size: 12.5px; line-height: 1.45; color: var(--text);
+  opacity: 0; transform: translateY(4px); transition: opacity .12s ease, transform .12s ease;
+  max-width: 280px;
+}
+.tip.show { opacity: 1; transform: translateY(0); }
+.tip .t-title { font-weight: 650; margin-bottom: 3px; }
+.tip .t-row { color: var(--text-dim); display: flex; gap: 8px; justify-content: space-between; }
+.tip .t-row b { color: var(--text); font-variant-numeric: tabular-nums; }
+.tip .sw { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; }
+
+/* ---------- Notes ---------- */
+.note {
+  border-left: 3px solid var(--border);
+  background: var(--surface-2);
+  border-radius: 0 10px 10px 0;
+  padding: 12px 16px; color: var(--text-dim); font-size: 13.5px;
+}
+.note.good { border-left-color: var(--c-good); }
+.note.warn { border-left-color: var(--c-warn); }
+.note.bad { border-left-color: var(--c-bad); }
+.note.info { border-left-color: var(--c-cross); }
+.note b { color: var(--text); }
+.note p { margin: 0 0 8px; }
+.note p:last-child { margin: 0; }
+
+ul.tight { margin: 0; padding-left: 18px; color: var(--text-dim); font-size: 13.5px; }
+ul.tight li { margin-bottom: 6px; }
+ul.tight li b, ul.tight li strong { color: var(--text); }
+
+/* ---------- Table ---------- */
+.tbl-wrap { overflow-x: auto; border-radius: 10px; border: 1px solid var(--border-soft); }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { padding: 9px 12px; text-align: left; border-bottom: 1px solid var(--border-soft); white-space: nowrap; }
+th {
+  background: var(--surface-2); color: var(--text-faint);
+  font-size: 11.5px; font-weight: 650; letter-spacing: 0.05em; text-transform: uppercase;
+  position: sticky; top: 0;
+}
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--mono); font-size: 12.5px; }
+tbody tr:last-child td { border-bottom: 0; }
+tbody tr.hl { background: var(--accent-soft); }
+tbody tr.hl td { color: var(--text); }
+.tag { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 650; }
+.tag.good { background: color-mix(in srgb, var(--c-good) 16%, transparent); color: var(--c-good); }
+.tag.warn { background: color-mix(in srgb, var(--c-warn) 16%, transparent); color: var(--c-warn); }
+.tag.bad { background: color-mix(in srgb, var(--c-bad) 16%, transparent); color: var(--c-bad); }
+.tag.info { background: color-mix(in srgb, var(--c-cross) 16%, transparent); color: var(--c-cross); }
+.tag.mute { background: var(--surface-2); color: var(--text-dim); }
+
+/* ---------- Details ---------- */
+details.method {
+  border: 1px solid var(--border-soft); border-radius: 10px;
+  background: var(--surface); margin-bottom: 10px; overflow: hidden;
+}
+details.method > summary {
+  cursor: pointer; padding: 12px 16px; font-weight: 620; font-size: 14px;
+  list-style: none; display: flex; align-items: center; gap: 9px;
+}
+details.method > summary::-webkit-details-marker { display: none; }
+details.method > summary::before { content: "▸"; color: var(--accent); font-size: 12px; transition: transform .15s; }
+details.method[open] > summary::before { transform: rotate(90deg); }
+details.method > div { padding: 0 16px 14px 16px; color: var(--text-dim); font-size: 13.5px; }
+details.method > div p { margin: 0 0 8px; }
+details.method > div p:last-child { margin: 0; }
+
+/* ---------- Steps ---------- */
+.steps { counter-reset: s; display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.step { position: relative; background: var(--surface); border: 1px solid var(--border-soft); border-radius: 12px; padding: 16px 18px 14px 52px; }
+.step::before {
+  counter-increment: s; content: counter(s);
+  position: absolute; left: 16px; top: 15px;
+  width: 24px; height: 24px; border-radius: 50%;
+  background: var(--accent-soft); color: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12.5px; font-weight: 700;
+}
+.step h4 { margin: 0 0 4px; font-size: 14.5px; font-weight: 650; }
+.step p { margin: 0; color: var(--text-dim); font-size: 13px; }
+
+footer.rep {
+  margin-top: 48px; padding: 24px 0 10px; border-top: 1px solid var(--border-soft);
+  color: var(--text-faint); font-size: 12.5px; display: grid; gap: 6px;
+}
+footer.rep code { font-family: var(--mono); color: var(--text-dim); }
+
+.mini { color: var(--text-faint); font-size: 12px; margin-top: 10px; }
+.bar-key { display: flex; gap: 8px; align-items: center; font-size: 12px; color: var(--text-faint); }
+
+@media (max-width: 720px) {
+  .topbar { flex-wrap: wrap; gap: 10px; }
+  nav.sections { order: 3; width: 100%; }
+  .hero { padding: 30px 0 20px; }
+  .wrap { padding: 0 16px; }
+}
+
+@media print {
+  :root { --bg: #fff; --surface: #fff; --surface-2: #f4f6f8; --text: #000; --text-dim: #333; --text-faint: #555; --border: #ccc; --border-soft: #ddd; }
+  html { --accent: #0d9488; }
+  .topbar { position: static; box-shadow: none; }
+  nav.sections, .tools { display: none; }
+  section { break-inside: avoid; }
+  .card { break-inside: avoid; box-shadow: none; }
+  body { padding-bottom: 0; }
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand"><span class="dot"></span> Gait Biometrics <small>· measured results review</small></div>
+  <nav class="sections">
+    <a href="#verif">Verification</a>
+    <a href="#dev">Model development</a>
+    <a href="#act">Activity classes</a>
+    <a href="#cross">Cross-day &amp; multisensor</a>
+    <a href="#calib">Calibration</a>
+    <a href="#scale">Generalisation</a>
+    <a href="#perf">Cost</a>
+    <a href="#read">Reading the results</a>
+  </nav>
+  <div class="tools">
+    <button class="iconbtn" id="print-btn" title="Print or save as PDF"><span class="glyph">⎙</span>Print</button>
+    <button class="iconbtn" id="theme-toggle" title="Toggle light / dark"><span class="glyph">◐</span>Dark</button>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- ============================ HERO ============================ -->
+  <div class="hero">
+    <div class="kicker">Minor Specialisation Project · review of measured results</div>
+    <h1>Cross-day verification went from one user refused 8 of 10 times to zero rejections</h1>
+    <p class="lede">An evidence-first review of the <b>gait-biometrics</b> pipeline. Overnight, a multisensor descriptor plus lagged-covariance backend cut the frozen cross-day error from 7.0% EER with a 22% genuine-reject rate to 0.0% EER with no rejections — but that headline is <b>exploratory reuse of five already-inspected users</b> and the false-accept rate still sits at 1.5%, above target. A separate pooled-calibration study also improved the development false-accept rate. Every number is reproduced from committed report artefacts, negative results are kept visible, and reused test cohorts are labelled as such.</p>
+    <div class="chips">
+      <span class="chip"><span class="pip" style="background:var(--c-good)"></span><b>0</b> genuine rejections at the new frozen threshold</span>
+      <span class="chip"><span class="pip" style="background:var(--c-cross)"></span><b>3</b> datasets · UCI HAR · WISDM AR v1.1 · Santos v7</span>
+      <span class="chip"><span class="pip" style="background:var(--c-warn)"></span><b>exploratory</b> cross-day test reuses 5 inspected users</span>
+      <span class="chip"><span class="pip" style="background:var(--c-bad)"></span><b>1</b> negative result retained in full</span>
+      <span class="chip">source commit <b>4014d85</b></span>
+      <span class="chip">24 October 2026</span>
+    </div>
+  </div>
+
+  <!-- ============================ KPIs ============================ -->
+  <section id="top" style="padding-top:6px">
+    <div class="grid g6">
+      <div class="card kpi" data-kpi="wisdm_eer"></div>
+      <div class="card kpi" data-kpi="crossday"></div>
+      <div class="card kpi" data-kpi="calibration"></div>
+      <div class="card kpi" data-kpi="preproc"></div>
+      <div class="card kpi" data-kpi="multisensor"></div>
+      <div class="card kpi" data-kpi="har_activity"></div>
+    </div>
+  </section>
+
+  <!-- ============================ VERIFICATION ============================ -->
+  <section id="verif">
+    <div class="sec-head">
+      <span class="kicker">01 · Verification</span>
+      <h2>How far the identity check has come — and where it still fails</h2>
+      <p>Within-recording verification on held-out subjects: 10,000 balanced same-activity comparisons per configuration (seed 42), thresholds selected on the validation split and then frozen, and EER reported as an independent quantity rather than as an alias of the operating point. Cross-day results live in section 04 because they use a different cohort and dataset.</p>
+    </div>
+
+    <div class="grid g2">
+      <div class="card pad-lg span2">
+        <div class="chart-head">
+          <div>
+            <h3>Verification error by configuration</h3>
+            <p class="sub">Lower is better for EER, FAR and FRR; higher is better for AUC. Cross-day row is a different dataset — not a control for the others.</p>
+          </div>
+          <div class="seg" id="seg-verification">
+            <button data-metric="eer" class="on">EER</button>
+            <button data-metric="auc">ROC AUC</button>
+            <button data-metric="far">Fixed FAR</button>
+            <button data-metric="frr">Fixed FRR</button>
+          </div>
+        </div>
+        <div class="chart" id="chart-verification"></div>
+        <div class="legend">
+          <span class="item"><span class="swatch" style="background:var(--c-base)"></span>frozen baseline</span>
+          <span class="item"><span class="swatch" style="background:var(--c-accent)"></span>selected new method</span>
+          <span class="item"><span class="swatch" style="background:var(--c-bad)"></span>negative result (validation winner that failed to generalise)</span>
+          <span class="item"><span class="swatch" style="background:var(--c-warn)"></span>exploratory follow-up (test cohort already seen)</span>
+          <span class="item"><span class="swatch" style="background:var(--c-cross)"></span>cross-day study (separate dataset)</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid g2" style="margin-top:16px">
+      <div class="card pad-lg">
+        <h3>Locked test results, side by side</h3>
+        <p class="sub">HAR and WISDM share the within-recording protocol. Evidence status is part of the result, not a footnote.</p>
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr><th>Dataset</th><th>Method</th><th class="num">EER</th><th class="num">AUC</th><th class="num">Fixed FAR</th><th class="num">Fixed FRR</th><th>Evidence</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>UCI HAR</td><td>Frozen baseline (20 ep)</td>
+                <td class="num">17.64%</td><td class="num">0.9252</td><td class="num">3.58%</td><td class="num">37.28%</td>
+                <td><span class="tag mute">prior baseline</span></td>
+              </tr>
+              <tr>
+                <td>UCI HAR</td><td>Multiscale hybrid ensemble</td>
+                <td class="num">21.46%</td><td class="num">0.8900</td><td class="num">6.86%</td><td class="num">27.38%</td>
+                <td><span class="tag bad">negative result</span></td>
+              </tr>
+              <tr>
+                <td>UCI HAR</td><td>Descriptors + WCCN (0.2)</td>
+                <td class="num">10.44%</td><td class="num">0.9608</td><td class="num">0.54%</td><td class="num">30.46%</td>
+                <td><span class="tag warn">exploratory · test reused</span></td>
+              </tr>
+              <tr>
+                <td>WISDM AR v1.1</td><td>Frozen baseline (20 ep)</td>
+                <td class="num">20.10%</td><td class="num">0.8686</td><td class="num">15.20%</td><td class="num">24.68%</td>
+                <td><span class="tag mute">prior baseline</span></td>
+              </tr>
+              <tr class="hl">
+                <td>WISDM AR v1.1</td><td>Multiscale batch-hard ensemble</td>
+                <td class="num">9.58%</td><td class="num">0.9622</td><td class="num">8.26%</td><td class="num">10.72%</td>
+                <td><span class="tag good">validation-locked</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="note warn" style="margin-top:14px">
+          <p><b>Read the fixed FRR column as a usability number, not a ranking.</b> The HAR descriptor follow-up has the best error rate (10.44%) and the lowest false-accept rate (0.54%), yet still refuses 3 in 10 genuine attempts. The comparison is not architecture-controlled: the neural bundle changes normalisation, sampling, objective, augmentation, 40 vs 20 epochs and 3-member vs single-model inference at once.</p>
+        </div>
+      </div>
+
+      <div class="card pad-lg">
+        <h3>Five-window prefix enrollment</h3>
+        <p class="sub">A separate protocol: five enrollment windows per identity, two skipped, every surviving probe compared against the template. Not directly comparable with random-pair EER.</p>
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr><th>WISDM method</th><th class="num">EER</th><th class="num">AUC</th><th class="num">Fixed FAR</th><th class="num">Fixed FRR</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Frozen baseline</td><td class="num">28.37%</td><td class="num">0.7804</td><td class="num">21.11%</td><td class="num">37.72%</td></tr>
+              <tr class="hl"><td>Selected neural ensemble</td><td class="num">20.42%</td><td class="num">0.9104</td><td class="num">10.78%</td><td class="num">35.99%</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="note info" style="margin-top:14px">
+          <p><b>Enrollment improved, but it is not a session protocol.</b> Index purging assumes preserved within-subject order; raw recording offsets are unavailable, so raw non-overlap and independent enrollment/probe sessions are <b>not</b> established. HAR enrollment <i>worsened</i> for the primary neural winner and is reported in full in the repository rather than dropped.</p>
+        </div>
+        <div class="note" style="margin-top:12px">
+          <p><b>What is established so far:</b> on WISDM walking, a validation-locked ensemble halves the error rate of the previous baseline and keeps the false-accept rate at 8.26% at a frozen threshold. <b>What is not:</b> a deployable operating point, phone-based authentication, or continuous passive authentication.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ MODEL DEVELOPMENT ============================ -->
+  <section id="dev">
+    <div class="sec-head">
+      <span class="kicker">02 · Model development</span>
+      <h2>Selection discipline: validation chooses, test only reports</h2>
+      <p>Six neural methods were trained for 40 epochs at three seeds each, with three descriptor baselines, giving 15 validation candidates per dataset. The winner was chosen on validation EER, its artefacts were hashed and locked, and the test split was read once. The curves below show how much of the error was visible before the test split was touched — and how much of it appeared afterwards.</p>
+    </div>
+
+    <div class="grid g2">
+      <div class="card pad-lg span2">
+        <div class="chart-head">
+          <div>
+            <h3>Validation trajectory of the selected methods (40 epochs)</h3>
+            <p class="sub">Dashed lines are the locked test EER of the same method. The gap between the two is the generalisation gap the study exists to expose.</p>
+          </div>
+          <div class="seg" id="seg-curves">
+            <button data-metric="val_eer" class="on">Val EER</button>
+            <button data-metric="val_roc_auc">Val AUC</button>
+            <button data-metric="loss">Loss</button>
+          </div>
+        </div>
+        <div class="chart" id="chart-curves"></div>
+        <div class="legend">
+          <span class="item"><span class="swatch line" style="background:var(--c-accent)"></span>WISDM v1 · multiscale batch-hard (selected)</span>
+          <span class="item"><span class="swatch line" style="background:var(--c-bad)"></span>UCI HAR · multiscale hybrid (selected, then failed)</span>
+        </div>
+      </div>
+
+      <div class="card pad-lg span2">
+        <div class="chart-head">
+          <div>
+            <h3>All 15 validation candidates</h3>
+            <p class="sub">Selection happened here, on validation, before any test access. The winner is highlighted.</p>
+          </div>
+          <div class="seg" id="seg-landscape">
+            <button data-ds="wisdm" class="on">WISDM v1</button>
+            <button data-ds="har">UCI HAR</button>
+          </div>
+        </div>
+        <div class="chart" id="chart-landscape"></div>
+        <div class="legend">
+          <span class="item"><span class="swatch" style="background:var(--c-accent)"></span>selected winner</span>
+          <span class="item"><span class="swatch" style="background:var(--c-base)"></span>other candidate</span>
+          <span class="item"><span class="swatch" style="background:var(--c-explore)"></span>descriptor baseline</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid g3" style="margin-top:16px">
+      <div class="card">
+        <h3>What the protocol guarantees</h3>
+        <ul class="tight" style="margin-top:8px">
+          <li><b>Selection on validation only.</b> No seed, threshold or post-processing choice was made from test scores; the seed ensemble is uniform, not best-of-three.</li>
+          <li><b>Locking with hashes.</b> <code>selection_lock.json</code> freezes artefact hashes, development tensor hashes and the baseline checksum; the runner revalidates checkpoint config, seed, 40 completed epochs and protocol before reuse.</li>
+          <li><b>Reduced smoke runs cannot unlock</b> a test evaluation.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>What it cost</h3>
+        <ul class="tight" style="margin-top:8px">
+          <li><b>36 final neural runs completed</b> (6 methods × 3 seeds × 2 datasets), plus 15 descriptor candidates and an earlier validation-only sweep kept for provenance.</li>
+          <li>Summed per-run training time: 287.19 s (HAR) and 225.19 s (WISDM) on an RTX 5070 Ti, both sweeps running concurrently.</li>
+          <li>GPU training is not promised bitwise reproducible; the real TF32 check observed zero embedding difference with cuDNN TF32 disabled, and a preliminary TF32-enabled run exceeded tolerance, so that path is rejected rather than silently accepted.</li>
+        </ul>
+      </div>
+      <div class="card" style="border-color:color-mix(in srgb, var(--c-bad) 40%, var(--border-soft))">
+        <h3 style="color:var(--c-bad)">The negative result, kept in view</h3>
+        <p class="sub">HAR hybrid won validation at 3.04% EER and reached 21.46% on test — worse than the 17.64% baseline it replaced.</p>
+        <ul class="tight" style="margin-top:6px">
+          <li>Per-seed test EER 0.2130 / 0.2004 / 0.2288, ensemble 0.2146.</li>
+          <li>The same pattern on WISDM: validation 1.98% → test 9.58%.</li>
+          <li>It is reported in full in the repository, and no later candidate was chosen from test scores to replace it.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ ACTIVITY ============================ -->
+  <section id="act">
+    <div class="sec-head">
+      <span class="kicker">03 · Activity classification</span>
+      <h2>Six activity classes, and the selection rule that changed the numbers</h2>
+      <p>Activity recognition is the first stage of the pipeline: only walking windows are used for identity comparison. The five-track sweep re-ran every architecture for 20 full epochs and selected each checkpoint on <b>validation activity loss</b> instead of training loss — a stricter rule that lowered several reported accuracies. The historical numbers are shown alongside for comparison, and the difference is reported rather than smoothed over.</p>
+    </div>
+
+    <div class="grid g2">
+      <div class="card pad-lg">
+        <h3>Test activity accuracy by track</h3>
+        <p class="sub">Solid bars: current validation-selected sweep. Muted bars: historical run selected on training loss. Dashed line: best historical single run (0.9369, four validation subjects).</p>
+        <div class="chart" id="chart-activity"></div>
+        <div class="legend">
+          <span class="item"><span class="swatch" style="background:var(--c-accent)"></span>validation-selected sweep (current protocol)</span>
+          <span class="item"><span class="swatch" style="background:var(--c-base)"></span>historical, train-loss selected</span>
+          <span class="item"><span class="swatch" style="background:var(--c-warn)"></span>historical best single run (different protocol)</span>
+        </div>
+        <div class="note" style="margin-top:14px">
+          <p><b>WISDM activity track:</b> 86.68% test accuracy for the same DeepConvLSTM, on a different dataset with different class balance. It is a separate measurement, not a second view of the HAR number.</p>
+        </div>
+      </div>
+
+      <div class="card pad-lg">
+        <h3>Confusion matrix — best current track (multitask, 90.53%)</h3>
+        <p class="sub">Counts of 2,947 test windows. The remaining error is concentrated in <i>standing</i> ↔ <i>sitting</i> — a posture confusion, not a gait one.</p>
+        <div class="chart" id="chart-confusion"></div>
+        <div class="mini">Rows = true class, columns = predicted class. Hover any cell for the row share.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ CROSS-DAY ============================ -->
+  <section id="cross">
+    <div class="sec-head">
+      <span class="kicker">04 · Cross-day &amp; multisensor</span>
+      <h2>The frozen cross-day error fell to zero — and the hard user was fixed</h2>
+      <p>Santos v7 is controlled leg-mounted walking collected on two different days. The overnight hillclimb changed the representation (accelerometer + gyroscope + rotation-invariant descriptors), the backend (lagged covariance), and the enrollment scorer (a mean/two-template blend). Each change was selected on development folds, and its threshold was calibrated on five separate CALIB users before test access. The result below is the first time the pipeline separates all five test users across days — with an important caveat: the test cohort is the <b>same five people already inspected</b> in the earlier study, so this is exploratory, not a fresh blind evaluation.</p>
+    </div>
+
+    <div class="grid g2">
+      <div class="card pad-lg span2">
+        <div class="chart-head">
+          <div>
+            <h3>Cross-day error by method (frozen-threshold test)</h3>
+            <p class="sub">Each bar is the same five test users, day-1 enrollment, day-2 probing. EER is independent of the threshold; AUC and the fixed FAR/FRR are shown in the table below.</p>
+          </div>
+        </div>
+        <div class="chart" id="chart-crossday-progress"></div>
+        <div class="tbl-wrap" style="margin-top:16px">
+          <table>
+            <thead><tr><th>Method</th><th class="num">EER</th><th class="num">AUC</th><th class="num">False accepts</th><th class="num">Genuine rejections</th><th>Evidence</th></tr></thead>
+            <tbody>
+              <tr><td>Historical accel + mean template</td><td class="num">7.0%</td><td class="num">0.9888</td><td class="num">1/200 (0.5%)</td><td class="num">11/50 (22%)</td><td><span class="tag mute">prior baseline</span></td></tr>
+              <tr><td>Multisensor + two templates</td><td class="num">2.5%</td><td class="num">0.9932</td><td class="num">6/200 (3.0%)</td><td class="num">1/50 (2%)</td><td><span class="tag warn">exploratory · test reused</span></td></tr>
+              <tr><td>+ lagged covariance</td><td class="num">2.5%</td><td class="num">0.9958</td><td class="num">7/200 (3.5%)</td><td class="num">0/50 (0%)</td><td><span class="tag warn">exploratory · test reused</span></td></tr>
+              <tr class="hl"><td>lagcov + mean/two-template blend</td><td class="num">0.0%</td><td class="num">1.0000</td><td class="num">3/200 (1.5%)</td><td class="num">0/50 (0%)</td><td><span class="tag good">selected · test reused</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="note warn" style="margin-top:14px">
+          <p><b>The zero rejections are real for these five people, but the false-accept rate still exceeds target.</b> The frozen threshold yields 1.5% test FAR against a 1% goal, and six of the seven false accepts across the lagcov variants target identity 26. Perfect separation of a small reused score set does not establish perfect authentication, and no threshold was re-chosen from the test gap.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid g2" style="margin-top:16px">
+      <div class="card pad-lg">
+        <h3>The hard user, before and after</h3>
+        <p class="sub">False-reject rate per test user. Muted bars: the old accel baseline. Solid bars: the lagcov + blend method. User 6 — refused 8 of 10 claims before — now passes all ten.</p>
+        <div class="chart" id="chart-crossday-users"></div>
+        <div class="note good" style="margin-top:14px">
+          <p><b>The 22% aggregate FRR was never a population average.</b> It was one person at 80% and everyone else near zero. The lagcov backend pulled user 6 into full separation, which is why the aggregate moved to zero.</p>
+        </div>
+      </div>
+
+      <div class="card pad-lg">
+        <h3>Error budget on the selected threshold</h3>
+        <p class="sub">Threshold −0.7250201527062856, accept iff <code>score ≥ threshold</code>, calibrated on CALIB users only and never changed after test scoring.</p>
+        <div class="chart" id="chart-crossday-budget"></div>
+        <div class="grid g2" style="margin-top:10px">
+          <div>
+            <div class="label" style="color:var(--text-faint);font-size:11.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase">Test result</div>
+            <div style="font-size:26px;font-weight:700;letter-spacing:-.02em;margin-top:4px">0.0% EER</div>
+            <div class="mini">ROC AUC 1.0 · FAR 1.5% (3/200) · FRR 0% (0/50)</div>
+          </div>
+          <div>
+            <div class="label" style="color:var(--text-faint);font-size:11.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase">From the old baseline</div>
+            <div style="font-size:26px;font-weight:700;letter-spacing:-.02em;margin-top:4px">7.0% EER</div>
+            <div class="mini">FAR 0.5% (1/200) · FRR 22% (11/50) · one user refused 8/10</div>
+          </div>
+        </div>
+        <div class="note bad" style="margin-top:16px">
+          <p><b>What this still does not establish.</b> Five reused test identities; no independent confirmation; controlled leg-mounted sensor, not a phone; no confidence interval; no takeover-delay measurement. The FAR of 1.5% is above the intended 1%.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid g2" style="margin-top:16px">
+      <div class="card pad-lg">
+        <h3>Multisensor representation: fusion wins development</h3>
+        <p class="sub">Thirty sensor/representation/enrollment candidates on five development subject folds. Only the key arms are shown; the full thirty remain in the evidence. Mean development EER, lower is better.</p>
+        <div class="chart" id="chart-multisensor"></div>
+        <div class="mini">Accelerometer + gyroscope axes with rotation-invariant descriptors, training-only WCCN(automatic), two angular medoid templates scored by maximum cosine. The winner needed no final neural training.</div>
+      </div>
+
+      <div class="card pad-lg">
+        <h3>Backend: lagged covariance wins</h3>
+        <p class="sub">Six backends over twenty unique held-out triples (four balanced five-fold partitions). Mean EER, lower is better. The historical baseline is shown for reference.</p>
+        <div class="chart" id="chart-backend"></div>
+        <div class="mini">Lagged covariance (362-dimensional descriptor) won at 4.874% versus 5.885% for the multisensor control and 8.897% for the historical accel baseline under the same twenty splits.</div>
+      </div>
+    </div>
+
+    <div class="grid g2" style="margin-top:16px">
+      <div class="note good">
+        <p><b>What this study does establish.</b> Cross-day verification is <i>measurable</i> and <i>improvable</i> under a frozen protocol: a change to representation and backend moved the same five test users from 7.0% to 0.0% EER and from 11 to 0 genuine rejections, without re-tuning the threshold on test data. Selection happened on development folds and separate calibration users.</p>
+      </div>
+      <div class="note warn">
+        <p><b>Why it is not yet a deployment claim.</b> The test cohort is the same five people seen before, so the improvement is partly a confirmation that the new features separate an already-observed population — not proof of generalisation to unseen people. The false-accept rate is still above target. Fresh repeated-session phone data remain the blocker.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ CALIBRATION ============================ -->
+  <section id="calib">
+    <div class="sec-head">
+      <span class="kicker">05 · Calibration</span>
+      <h2>A pooled threshold and a twelve-person refit lower the development false-accept rate</h2>
+      <p>Separate from the hillclimb, this DEV-only study asks whether the operating point can be chosen more reliably. Twenty outer validation triples come from four balanced five-fold partitions of fifteen development people; each split holds out three people for calibration and three for validation, and fits the metric on the remaining nine (or twelve, for the refit). The promotion gate was fixed before fitting: blend FAR ≤ 1%, no increase in splits above 2% FAR, strictly lower mean FRR, and at least ten people no worse.</p>
+    </div>
+
+    <div class="grid g2">
+      <div class="card pad-lg">
+        <h3>Calibration policy comparison (blend scorer)</h3>
+        <p class="sub">Mean FAR and mean FRR across twenty development splits. Policy C — the pooled threshold applied to a twelve-person refit — was the sole eligible replacement.</p>
+        <div class="chart" id="chart-calibration"></div>
+        <div class="legend">
+          <span class="item"><span class="swatch" style="background:var(--c-base)"></span>mean FAR (lower is better)</span>
+          <span class="item"><span class="swatch" style="background:var(--c-accent)"></span>selected policy C</span>
+        </div>
+      </div>
+
+      <div class="card pad-lg">
+        <h3>What policy C changes, and what it does not</h3>
+        <div class="grid g2" style="margin-top:4px">
+          <div>
+            <div class="label" style="color:var(--text-faint);font-size:11.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase">Mean FAR</div>
+            <div style="font-size:28px;font-weight:700;letter-spacing:-.02em;margin-top:2px">0.917% → 0.836%</div>
+            <div class="mini">97/11,600 vs 11/1,200 exact</div>
+          </div>
+          <div>
+            <div class="label" style="color:var(--text-faint);font-size:11.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase">Mean FRR</div>
+            <div style="font-size:28px;font-weight:700;letter-spacing:-.02em;margin-top:2px">19.28% → 15.13%</div>
+            <div class="mini">329/2,175 vs 559/2,900 exact</div>
+          </div>
+        </div>
+        <div class="note info" style="margin-top:16px">
+          <p><b>The concentrated-false-accept diagnostic triggered.</b> Eight of the prior blend's eleven development false accepts sit in two directed person pairs. This flags claimant normalization as the next bounded research question; no normalization arm was added here, and those repeated decisions are not eleven independent people.</p>
+        </div>
+        <div class="note warn" style="margin-top:12px">
+          <p><b>Per-person limits remain.</b> Five people improve, seven tie, three worsen under C. Identity 9 is still completely rejected (100% mean FRR) and identity 5 stays at 67.5%. Passing the aggregate gate does not establish usable authentication for everyone.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid g2" style="margin-top:16px">
+      <div class="note good">
+        <p><b>What it establishes.</b> A pooled threshold plus a twelve-person refit passes a fixed promotion gate on development data: lower mean FAR and FRR with no increase in bad-split count. Exact rational arithmetic is used throughout, and no original CALIB or TEST numerical payload was opened — this study neither changes the earlier frozen threshold nor establishes a better TEST FAR.</p>
+      </div>
+      <div class="note warn">
+        <p><b>What it does not.</b> These are descriptive results from overlapping development splits, not new held-out or population estimates. The order-statistic reference policy (D) assumes independent calibration observations, which does not hold for dependent pooled gait scores. Two hundred historical CPU covariance fits were run in total after a discarded first attempt.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ SCALING ============================ -->
+  <section id="scale">
+    <div class="sec-head">
+      <span class="kicker">06 · Subject generalisation</span>
+      <h2>Bigger encoders did not help; simpler features did</h2>
+      <p>Forty-eight complete runs tested a matched size × objective factorial on subject folds rather than random windows: width 32 vs 96, linear vs ArcFace identity heads, three subject folds × two seeds × exactly 40 epochs per neural run, with the source test split never loaded. Larger encoders helped WISDM slightly and made HAR slightly worse, and both lost to descriptor baselines.</p>
+    </div>
+
+    <div class="grid g2">
+      <div class="card pad-lg span2">
+        <div class="chart-head">
+          <div>
+            <h3>Mean development-fold EER by candidate</h3>
+            <p class="sub">Whiskers are fold standard deviation (dependent fold variation, not a confidence interval). Development folds only — the source test split was never loaded in this study.</p>
+          </div>
+        </div>
+        <div class="chart" id="chart-scaling"></div>
+        <div class="legend">
+          <span class="item"><span class="swatch" style="background:var(--c-base)"></span>UCI HAR</span>
+          <span class="item"><span class="swatch" style="background:var(--c-explore)"></span>WISDM AR v1.1</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Relative development error reduction</h3>
+        <p class="sub">Against the small linear-head comparator, on the same folds.</p>
+        <div class="grid g2" style="margin-top:6px">
+          <div>
+            <div class="label" style="color:var(--text-faint);font-size:11.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase">UCI HAR</div>
+            <div style="font-size:28px;font-weight:700;letter-spacing:-.02em;margin-top:2px">−36.0%</div>
+            <div class="mini">18.203% → 11.647% (features_standard)</div>
+          </div>
+          <div>
+            <div class="label" style="color:var(--text-faint);font-size:11.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase">WISDM v1.1</div>
+            <div style="font-size:28px;font-weight:700;letter-spacing:-.02em;margin-top:2px">−31.9%</div>
+            <div class="mini">18.560% → 12.633% (features_wccn_0.2)</div>
+          </div>
+        </div>
+        <div class="note info" style="margin-top:14px">
+          <p><b>Read this study as a development result.</b> Earlier work already inspected the HAR and WISDM test cohorts; this work does not relabel them as fresh. Four users per source are excluded from every optimizer and reporting fold, and calibration happens after selection.</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Why this matters for the next step</h3>
+        <ul class="tight" style="margin-top:8px">
+          <li><b>Descriptor methods beat larger neural encoders on both sources</b> when the problem is framed as subject generalisation rather than window discrimination.</li>
+          <li>The same descriptor family (<code>wccn_auto</code>) is what won the locked cross-day study — the two independent lines of evidence point the same way.</li>
+          <li><b>Careful:</b> these are development folds. Fold SDs of 6–10 percentage points mean the ranking is fragile and the margins between the top candidates are small.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="grid g2" style="margin-top:16px">
+      <div class="card pad-lg span2">
+        <h3>Rotation-invariant descriptors transfer to HAR and WISDM</h3>
+        <p class="sub">A development-only invariance ablation: replacing axis-aligned descriptors with rotation-invariant ones improves mean subject-fold EER on both sources. Within-recording subject folds, not fresh cross-day or TEST results.</p>
+        <div class="chart" id="chart-transfer"></div>
+        <div class="legend">
+          <span class="item"><span class="swatch" style="background:var(--c-base)"></span>axis-aligned</span>
+          <span class="item"><span class="swatch" style="background:var(--c-explore)"></span>rotation-invariant</span>
+          <span class="item"><span class="swatch" style="background:var(--c-warn)"></span>fusion (axis + invariant)</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ PERFORMANCE ============================ -->
+  <section id="perf">
+    <div class="sec-head">
+      <span class="kicker">07 · Cost</span>
+      <h2>What it costs to run</h2>
+      <p>Data loading was rewritten for throughput, inference latency was measured on CPU and GPU, a compression experiment was run on the activity model, and the multisensor cross-day winner was timed against its baseline. Two of these results are clean wins; the compression experiment is a documented failure, and the accuracy gain has a measured latency cost.</p>
+    </div>
+
+    <div class="grid g2">
+      <div class="card pad-lg">
+        <h3>Preprocessing: 15.72× faster, identical output</h3>
+        <p class="sub">100,000 rows, window 128 / stride 64, three runs each, medians shown. Output equality was checked, not assumed.</p>
+        <div class="chart" id="chart-preproc"></div>
+        <div class="mini">The rewrite is a vectorised load path over the same windows; the produced windows are bit-identical to the pandas baseline.</div>
+      </div>
+
+      <div class="card pad-lg">
+        <h3>Training and inference throughput</h3>
+        <p class="sub">Log scale. CPU on two threads, CUDA on an RTX 5070 Ti; warm-up batches excluded, medians over repeated batches.</p>
+        <div class="chart" id="chart-throughput"></div>
+        <div class="legend">
+          <span class="item"><span class="swatch" style="background:var(--c-base)"></span>CPU (2 threads)</span>
+          <span class="item"><span class="swatch" style="background:var(--c-accent)"></span>CUDA (RTX 5070 Ti)</span>
+        </div>
+      </div>
+
+      <div class="card pad-lg">
+        <h3>Inference latency vs model size</h3>
+        <p class="sub">Resident input, FP32, five warm-up batches, 30 timed repetitions. Excludes input transfer, data loading and scoring.</p>
+        <div class="chart" id="chart-latency"></div>
+        <div class="note warn" style="margin-top:12px">
+          <p><b>Fewer parameters, more time.</b> The new ensemble stores 86,916 parameters against the baseline's 174,720 (the old count includes an unused DAE decoder) but is slower, because many small multiscale operations and three forwards add dispatch cost. Optional branch packing cuts CUDA batch-1 latency from 4.693 ms to 3.687 ms (1.27×) while growing the stored ensemble to 126,084 parameters and slowing CPU batch-128 from 76.5 ms to 92.8 ms. <b>No blanket speed-up, phone-energy or on-device claim is made.</b></p>
+        </div>
+      </div>
+
+      <div class="card pad-lg">
+        <h3>Compression experiment — a documented failure</h3>
+        <p class="sub">Pruning the activity model bought size and cost accuracy. The accuracy loss was far too large to ship, so the branch is reported, not adopted.</p>
+        <div class="chart" id="chart-compression"></div>
+        <div class="note bad" style="margin-top:12px">
+          <p><b>Test activity accuracy fell from 95.31% to 66.41%</b> (−30.3%) while parameters halved and FLOPs dropped by half. The size win is real; the accuracy loss is not acceptable, so the compressed model is not part of the pipeline.</p>
+        </div>
+      </div>
+
+      <div class="card pad-lg">
+        <h3>Multisensor winner: an accuracy/latency trade-off</h3>
+        <p class="sub">Resident raw-window-to-embedding CPU latency, batch one, thirty timed repetitions on two CPU threads. The cross-day winner is measurably slower than the acceleration baseline it replaces.</p>
+        <div class="chart" id="chart-runtime"></div>
+        <div class="note warn" style="margin-top:12px">
+          <p><b>5.2× slower at batch one, not a speed-up.</b> The multisensor winner needs 5.73 ms per window against the accel baseline's 1.11 ms (batch-32: 13.79 ms vs 4.27 ms). This is the measured cost of the accuracy gain, not an execution optimisation. Feature extraction, fixed projection and normalization are timed; sensor acquisition, file loading, enrollment/claim scoring and phone energy are excluded.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ READING ============================ -->
+  <section id="read">
+    <div class="sec-head">
+      <span class="kicker">08 · Interpretation</span>
+      <h2>What this project shows, and what it does not</h2>
+      <p>The honest summary of a project at this stage: the pipeline works, the protocol is disciplined, cross-day verification improved dramatically overnight, and the deployment claims are still not earned — the biggest gains reuse a small already-inspected cohort.</p>
+    </div>
+
+    <div class="grid g3">
+      <div class="card" style="border-color:color-mix(in srgb, var(--c-good) 40%, var(--border-soft))">
+        <h3 style="color:var(--c-good)">Supported by the evidence</h3>
+        <ul class="tight" style="margin-top:8px">
+          <li>WISDM walking verification error more than halved (20.10% → 9.58%) under a validation-locked, test-read-once protocol, with ROC AUC 0.9622.</li>
+          <li>Cross-day verification on the same five test users moved from 7.0% EER / 22% FRR to 0.0% EER / 0% FRR with a multisensor + lagcov + blend pipeline — the formerly-refused user now passes all ten claims.</li>
+          <li>A pooled-threshold calibration policy (C) lowered development mean FAR from 0.917% to 0.836% and mean FRR from 19.28% to 15.13% under a fixed promotion gate.</li>
+          <li>Subject-fold studies consistently favour descriptor methods over larger neural encoders, and rotation-invariant descriptors transfer to both HAR and WISDM.</li>
+          <li>Data loading is 15.72× faster with bit-identical output; training and inference scale to a single consumer GPU.</li>
+        </ul>
+      </div>
+      <div class="card" style="border-color:color-mix(in srgb, var(--c-warn) 40%, var(--border-soft))">
+        <h3 style="color:var(--c-warn)">Not yet established</h3>
+        <ul class="tight" style="margin-top:8px">
+          <li>Phone-based or wearable-based authentication of any kind.</li>
+          <li>Continuous passive authentication, online takeover detection or a usable false-accept operating point (the best cross-day FAR is still 1.5%, above the 1% target).</li>
+          <li>Generalisation beyond the five cross-day test users — the 0.0% EER result reuses the same people inspected earlier, so it is not a blind evaluation.</li>
+          <li>A fresh held-out cohort for the exploratory HAR descriptor result (10.44% EER), which reused a test cohort that had already been inspected.</li>
+          <li>Any on-device latency or energy claim; the multisensor winner is 5.2× slower than baseline at batch one.</li>
+        </ul>
+      </div>
+      <div class="card" style="border-color:color-mix(in srgb, var(--c-bad) 40%, var(--border-soft))">
+        <h3 style="color:var(--c-bad)">Known weaknesses to fix first</h3>
+        <ul class="tight" style="margin-top:8px">
+          <li><b>The frozen false-accept rate still exceeds target.</b> Six of seven lagcov false accepts target identity 26, and no threshold was re-chosen from the test gap.</li>
+          <li><b>Calibration per-person failures persist.</b> Identity 9 is still 100% rejected and identity 5 stays near 67.5% under policy C — the aggregate gate hides unusable individuals.</li>
+          <li>The HAR neural winner generalised worse than the baseline it replaced, and the ensemble's advantage is unproven on that dataset.</li>
+          <li>Random-pair EER is not an authentication protocol; enrollment and session behaviour are only approximated.</li>
+          <li>Legacy numeric WISDM CSV labels remain unnamed and unverified; only the explicit <code>wisdm_v1</code> mapping to the official AR v1.1 release is verified.</li>
+          <li>Overlapping windows are not independent, and pair draws use replacement — variance estimates are descriptive only.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="sec-head" style="margin-top:28px">
+      <h2 style="font-size:19px">Recommended next steps</h2>
+      <p>Ordered by what unblocks the most, not by what is most interesting.</p>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <h4>Confirm the cross-day win on a fresh cohort</h4>
+        <p>The 0.0% EER reuses five already-inspected users. Recruit a new repeated-session phone cohort to turn the exploratory result into a blind one — this is the single highest-value next step.</p>
+      </div>
+      <div class="step">
+        <h4>Study claimant normalization</h4>
+        <p>Eight of eleven development false accepts concentrate in two directed person pairs, and six of seven lagcov test accepts target one user. A normalization arm is the next bounded research question.</p>
+      </div>
+      <div class="step">
+        <h4>Fix the calibration per-user floor</h4>
+        <p>Identity 9 is still 100% rejected and identity 5 stays near 67.5% under policy C. Until a per-user floor exists, continuous authentication is not deployable for everyone.</p>
+      </div>
+      <div class="step">
+        <h4>Reproduce the merged pipeline locally</h4>
+        <p>Pull the merged branches and re-run the full pipeline end to end, so the WISDM identity handling and the cross-day numbers are independently reproduced rather than inherited from pull requests.</p>
+      </div>
+      <div class="step">
+        <h4>Regenerate processed WISDM with subject IDs</h4>
+        <p>Re-export WISDM with subject identifiers attached, verify the old numeric labels' semantics, and record session boundaries instead of inferring identity from row order.</p>
+      </div>
+      <div class="step">
+        <h4>Decide the target device</h4>
+        <p>Phone, wrist-worn or ankle-worn changes the windowing, sensor noise and energy budget — and the winner is already 5.2× slower. Optimising latency before that decision is wasted effort.</p>
+      </div>
+    </div>
+
+    <div style="margin-top:26px">
+      <details class="method">
+        <summary>Methodology notes and protocol details</summary>
+        <div>
+          <p><b>Verification protocol.</b> Held-out-subject, within-recording discrimination. Development and test subjects are disjoint; validation windows never fit normalisation or the identity classifier. Scores are cosine similarity minus one, higher is more genuine, with 10,000 balanced same-activity comparisons drawn subject-uniform with replacement (5,000 genuine / 5,000 impostor).</p>
+          <p><b>Thresholds.</b> The deployment threshold is selected on validation to target FAR ≤ 1% and then frozen; the test split reports FAR and FRR at that frozen threshold, which does not promise a 1% test FAR. EER is computed independently, and the nearest empirical crossing is labelled as a non-deployable evaluation point.</p>
+          <p><b>Cross-day protocol.</b> Santos v7, controlled leg-mounted short walks over two days. Participant split (15 development / 5 calibration / 5 test) was fixed from directory metadata before signal inspection. Enrollment uses day 1 only, probing uses day 2 only. Coverage reflects supplied comparisons; exhaustive coverage is not verified.</p>
+          <p><b>Activity protocol.</b> Six classes on UCI HAR (walking, upstairs, downstairs, sitting, standing, laying). The current sweep selects the checkpoint on validation activity loss; the historical numbers selected on training loss. 2,947 test windows.</p>
+          <p><b>Reproducibility caveats.</b> Single-seed where noted; CUDA bitwise determinism is not guaranteed; validation was used for both checkpoint selection and threshold calibration; pair draws use replacement and overlapping raw windows are not independent; descriptive counts only, with no confidence intervals.</p>
+        </div>
+      </details>
+      <details class="method">
+        <summary>Source artefacts and how to re-read them</summary>
+        <div>
+          <p>Every number in this report is reproduced from committed artefacts in <code>VariableThe/gait-biometrics</code> at commit <code>4014d85</code>:</p>
+          <p><code>reports/2026-10-23/</code> — baseline study: summary.json, training histories, preprocessing and throughput benchmarks.<br>
+             <code>reports/2026-10-23-quality/</code> — primary 36-run study, secondary HAR subject-CV study, per-epoch histories, selection locks.<br>
+             <code>reports/2026-10-23-scaling/</code> — 48-run size × objective factorial with fold detail.<br>
+             <code>reports/2026-10-23-cross-day/</code> — the original locked cross-day protocol.<br>
+             <code>reports/2026-10-24-hillclimb/</code> — multisensor, backend, operating-point and transfer studies; the updated cross-day comparison.<br>
+             <code>reports/2026-10-24-calibration/</code> — pooled-threshold DEV calibration comparison (policy C).</p>
+          <p>The pipeline lives in <code>engine/</code>, the WISDM adapter in <code>data/adapter.py</code> (source <code>wisdm_v1</code>, official <code>WISDM_ar_v1.1_raw.txt</code>), and the Student C evaluation harness in <code>engine/evaluate.py</code>.</p>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  <footer class="rep">
+    <div>Prepared for the minor specialisation project team · source <code>VariableThe/gait-biometrics</code> @ <code>4014d85</code> · generated 24 October 2026</div>
+    <div>Datasets: UCI HAR, WISDM AR v1.1 (official release, archive SHA256 <code>e5737912…592d7</code>), Santos v7 leg-mounted protocol. All numbers are measured values from committed artefacts, not projections.</div>
+    <div>Negative results, exploratory labels and protocol caveats are reproduced here as they appear in the source reports.</div>
+  </footer>
+
+</div>
+
+<script>window.REPORT_DATA = {"series":{"kpi":{"wisdm_eer":{"label":"WISDM verification EER","value":"9.58%","delta":"\u25bc 52.3% vs 20.10% baseline","deltaClass":"d-good","foot":"locked test \u00b7 ROC AUC 0.9622 \u00b7 10,000 comparisons"},"crossday":{"label":"Cross-day EER (Santos v7)","value":"0.0%","delta":"\u25b2 from 7.0% \u2014 the 8/10 user is fixed","deltaClass":"d-good","foot":"exploratory \u00b7 5 reused test users \u00b7 AUC 1.0 \u00b7 FAR 1.5%"},"calibration":{"label":"Pooled calibration FAR","value":"0.836%","delta":"\u25bc from 0.917% \u00b7 FRR 19.3\u219215.1%","deltaClass":"d-good","foot":"policy C \u00b7 12-person refit \u00b7 DEV-only"},"preproc":{"label":"Preprocessing speed-up","value":"15.72","unit":"\u00d7","delta":"bit-identical output","deltaClass":"d-good","foot":"100,000 rows \u2192 1,561 windows"},"multisensor":{"label":"Multisensor dev EER","value":"6.68%","delta":"\u25bc from 11.74% accel-only control","deltaClass":"d-good","foot":"accel+gyro+invariant fusion \u00b7 5 folds"},"har_activity":{"label":"HAR activity accuracy","value":"90.53%","delta":"93.69% under the older selection rule","deltaClass":"d-flat","foot":"multitask track \u00b7 2,947 test windows"}},"verification":[{"name":"UCI HAR \u00b7 frozen baseline (20 epochs)","short":"Baseline","dataset":"UCI HAR","color":"var(--c-base)","eer":0.1764,"auc":0.9252,"far":0.0358,"frr":0.3728,"status":"prior baseline","note":"20-epoch walking model, re-evaluated under the current harness."},{"name":"UCI HAR \u00b7 multiscale hybrid ensemble","short":"Multiscale hybrid","dataset":"UCI HAR","color":"var(--c-bad)","eer":0.2146,"auc":0.89,"far":0.0686,"frr":0.2738,"status":"negative result","note":"Won validation at 3.04% EER, then failed to generalise to test."},{"name":"UCI HAR \u00b7 descriptors + WCCN (0.2)","short":"Descriptors + WCCN","dataset":"UCI HAR","color":"var(--c-warn)","eer":0.1044,"auc":0.9608,"far":0.0054,"frr":0.3046,"status":"exploratory \u00b7 test reused","note":"Secondary subject-CV selection; the test cohort had already been inspected."},{"name":"WISDM v1 \u00b7 frozen baseline (20 epochs)","short":"Baseline","dataset":"WISDM v1","color":"var(--c-base)","eer":0.201,"auc":0.8686,"far":0.152,"frr":0.2468,"status":"prior baseline","note":"20-epoch walking model, re-evaluated under the current harness."},{"name":"WISDM v1 \u00b7 multiscale batch-hard ensemble","short":"Multiscale batch-hard","dataset":"WISDM v1","color":"var(--c-accent)","eer":0.0958,"auc":0.9622,"far":0.0826,"frr":0.1072,"status":"validation-locked","note":"Selected on validation at 1.98% EER; the test split was read once."},{"name":"Santos v7 \u00b7 cross-day lagcov + blend","short":"Cross-day","dataset":"Santos v7","color":"var(--c-cross)","eer":0.0,"auc":1.0,"far":0.015,"frr":0.0,"status":"exploratory \u00b7 test reused","note":"Different cohort: 5 reused test users, day-1 enrollment, day-2 probing."}],"curves":[{"name":"WISDM v1 \u00b7 multiscale batch-hard","short":"WISDM","color":"var(--c-accent)","best_epoch":5,"test_eer":0.0958,"points":[{"epoch":1,"val_eer":0.1036,"val_roc_auc":0.9674351200000001,"loss":1.811702064845873},{"epoch":2,"val_eer":0.0954,"val_roc_auc":0.9743194000000002,"loss":1.6591164495633997},{"epoch":3,"val_eer":0.0798,"val_roc_auc":0.97948216,"loss":1.5419706106185913},{"epoch":4,"val_eer":0.0636,"val_roc_auc":0.9860291600000001,"loss":1.4604149590367856},{"epoch":5,"val_eer":0.0202,"val_roc_auc":0.9982474399999999,"loss":1.374264789664227},{"epoch":6,"val_eer":0.0284,"val_roc_auc":0.99678472,"loss":1.2892821819885918},{"epoch":7,"val_eer":0.0388,"val_roc_auc":0.99366536,"loss":1.2227938693502676},{"epoch":8,"val_eer":0.0452,"val_roc_auc":0.9911498,"loss":1.1561087266258572},{"epoch":9,"val_eer":0.0342,"val_roc_auc":0.99661816,"loss":1.0928232099698938},{"epoch":10,"val_eer":0.0438,"val_roc_auc":0.9940921200000001,"loss":1.0354951931082683},{"epoch":11,"val_eer":0.0446,"val_roc_auc":0.9931388,"loss":0.9857789278030396},{"epoch":12,"val_eer":0.0416,"val_roc_auc":0.99513516,"loss":0.9380703983099564},{"epoch":13,"val_eer":0.0422,"val_roc_auc":0.99349668,"loss":0.8907693391260894},{"epoch":14,"val_eer":0.0354,"val_roc_auc":0.9952554,"loss":0.8517361801603566},{"epoch":15,"val_eer":0.0338,"val_roc_auc":0.99681672,"loss":0.8143210436986841},{"epoch":16,"val_eer":0.038,"val_roc_auc":0.9950818,"loss":0.7778720622477324},{"epoch":17,"val_eer":0.04,"val_roc_auc":0.99541824,"loss":0.7457378532575525},{"epoch":18,"val_eer":0.0426,"val_roc_auc":0.99416764,"loss":0.7173207531804624},{"epoch":19,"val_eer":0.0402,"val_roc_auc":0.99525104,"loss":0.6915257702703062},{"epoch":20,"val_eer":0.0412,"val_roc_auc":0.9943243600000001,"loss":0.6699339436448138},{"epoch":21,"val_eer":0.0368,"val_roc_auc":0.9956642,"loss":0.6458645851715751},{"epoch":22,"val_eer":0.035,"val_roc_auc":0.9962668,"loss":0.6259039925492328},{"epoch":23,"val_eer":0.045,"val_roc_auc":0.99382264,"loss":0.6080207332320835},{"epoch":24,"val_eer":0.0356,"val_roc_auc":0.99592244,"loss":0.5928757164789282},{"epoch":25,"val_eer":0.0354,"val_roc_auc":0.99621936,"loss":0.5817692409390989},{"epoch":26,"val_eer":0.0334,"val_roc_auc":0.99644488,"loss":0.5692673973415209},{"epoch":27,"val_eer":0.0356,"val_roc_auc":0.9957906799999999,"loss":0.5586661437283391},{"epoch":28,"val_eer":0.0364,"val_roc_auc":0.99557676,"loss":0.5496660470962524},{"epoch":29,"val_eer":0.0356,"val_roc_auc":0.9960011599999999,"loss":0.541883471219436},{"epoch":30,"val_eer":0.038,"val_roc_auc":0.99560856,"loss":0.5351602823837943},{"epoch":31,"val_eer":0.0308,"val_roc_auc":0.99687376,"loss":0.5295156810594641},{"epoch":32,"val_eer":0.0362,"val_roc_auc":0.9956780799999999,"loss":0.5233871185261271},{"epoch":33,"val_eer":0.0358,"val_roc_auc":0.9959947200000001,"loss":0.5203493367070737},{"epoch":34,"val_eer":0.038,"val_roc_auc":0.99546764,"loss":0.5184812532818835},{"epoch":35,"val_eer":0.0356,"val_roc_auc":0.9960680000000001,"loss":0.5160079857577449},{"epoch":36,"val_eer":0.033,"val_roc_auc":0.9964484399999999,"loss":0.5146629292031993},{"epoch":37,"val_eer":0.0342,"val_roc_auc":0.9962485600000001,"loss":0.5155577063560486},{"epoch":38,"val_eer":0.0358,"val_roc_auc":0.9959439600000001,"loss":0.5128516412299612},{"epoch":39,"val_eer":0.0358,"val_roc_auc":0.99597016,"loss":0.5140925619913184},{"epoch":40,"val_eer":0.0352,"val_roc_auc":0.99603352,"loss":0.5128251443738523}]},{"name":"UCI HAR \u00b7 multiscale hybrid","short":"HAR","color":"var(--c-bad)","best_epoch":31,"test_eer":0.2146,"points":[{"epoch":1,"val_eer":0.1306,"val_roc_auc":0.9312102,"loss":2.7656405289967854},{"epoch":2,"val_eer":0.113,"val_roc_auc":0.9516990000000002,"loss":2.168298367659251},{"epoch":3,"val_eer":0.0966,"val_roc_auc":0.96948736,"loss":1.9042601386706035},{"epoch":4,"val_eer":0.1144,"val_roc_auc":0.9564110400000001,"loss":1.724526540438334},{"epoch":5,"val_eer":0.1442,"val_roc_auc":0.93930692,"loss":1.58377632300059},{"epoch":6,"val_eer":0.1288,"val_roc_auc":0.9483942,"loss":1.4693806409835815},{"epoch":7,"val_eer":0.1308,"val_roc_auc":0.9474040400000001,"loss":1.3814867814381917},{"epoch":8,"val_eer":0.1262,"val_roc_auc":0.9520986800000001,"loss":1.2936323245366415},{"epoch":9,"val_eer":0.1272,"val_roc_auc":0.95392092,"loss":1.2227467139561972},{"epoch":10,"val_eer":0.1392,"val_roc_auc":0.9427430400000001,"loss":1.1579454819361368},{"epoch":11,"val_eer":0.1196,"val_roc_auc":0.95859136,"loss":1.1015668749809264},{"epoch":12,"val_eer":0.1216,"val_roc_auc":0.9531771200000001,"loss":1.0565188566843668},{"epoch":13,"val_eer":0.1208,"val_roc_auc":0.9572815199999999,"loss":1.0157642722129823},{"epoch":14,"val_eer":0.121,"val_roc_auc":0.95748728,"loss":0.9794677297274271},{"epoch":15,"val_eer":0.1132,"val_roc_auc":0.9628304000000001,"loss":0.9512415587902069},{"epoch":16,"val_eer":0.1092,"val_roc_auc":0.9624813999999999,"loss":0.9250502109527587},{"epoch":17,"val_eer":0.0994,"val_roc_auc":0.9695467999999999,"loss":0.9073253194491069},{"epoch":18,"val_eer":0.1022,"val_roc_auc":0.96717732,"loss":0.885865839322408},{"epoch":19,"val_eer":0.1028,"val_roc_auc":0.9680849199999999,"loss":0.8740714887777964},{"epoch":20,"val_eer":0.1116,"val_roc_auc":0.96277048,"loss":0.8549303750197093},{"epoch":21,"val_eer":0.1068,"val_roc_auc":0.96454408,"loss":0.846336289246877},{"epoch":22,"val_eer":0.0968,"val_roc_auc":0.971887,"loss":0.8386407514413198},{"epoch":23,"val_eer":0.0946,"val_roc_auc":0.9713212400000001,"loss":0.8294390420118968},{"epoch":24,"val_eer":0.0958,"val_roc_auc":0.9701660400000001,"loss":0.821409809589386},{"epoch":25,"val_eer":0.1038,"val_roc_auc":0.9676184,"loss":0.8153129835923513},{"epoch":26,"val_eer":0.1036,"val_roc_auc":0.9666276399999999,"loss":0.8113534291585286},{"epoch":27,"val_eer":0.0966,"val_roc_auc":0.9714818,"loss":0.8077408989270528},{"epoch":28,"val_eer":0.0982,"val_roc_auc":0.971402,"loss":0.802266408999761},{"epoch":29,"val_eer":0.0928,"val_roc_auc":0.9732716800000001,"loss":0.798640517393748},{"epoch":30,"val_eer":0.094,"val_roc_auc":0.9730858400000001,"loss":0.7974424699942271},{"epoch":31,"val_eer":0.0922,"val_roc_auc":0.9730230800000002,"loss":0.79572394490242},{"epoch":32,"val_eer":0.0962,"val_roc_auc":0.9709468399999999,"loss":0.791806532939275},{"epoch":33,"val_eer":0.0956,"val_roc_auc":0.97291268,"loss":0.7947547018527985},{"epoch":34,"val_eer":0.0952,"val_roc_auc":0.9729758399999999,"loss":0.7910043358802795},{"epoch":35,"val_eer":0.0936,"val_roc_auc":0.97344272,"loss":0.7901129762331645},{"epoch":36,"val_eer":0.0946,"val_roc_auc":0.9729811200000001,"loss":0.7892541964848836},{"epoch":37,"val_eer":0.0954,"val_roc_auc":0.97261284,"loss":0.7883146087328593},{"epoch":38,"val_eer":0.096,"val_roc_auc":0.9722542000000001,"loss":0.7886883954207102},{"epoch":39,"val_eer":0.0956,"val_roc_auc":0.9722124000000001,"loss":0.7898183147112529},{"epoch":40,"val_eer":0.0958,"val_roc_auc":0.9722315200000001,"loss":0.7874342501163483}]}],"landscape":{"wisdm":[{"label":"multiscale batch-hard","sub":"no post-processing","eer":0.0198,"kind":"neural","winner":true},{"label":"temporal hybrid","sub":"no post-processing","eer":0.0336,"kind":"neural","winner":false},{"label":"multiscale batch-hard","sub":"+ WCCN(auto)","eer":0.0432,"kind":"neural","winner":false},{"label":"multiscale hybrid","sub":"no post-processing","eer":0.0508,"kind":"neural","winner":false},{"label":"multiscale hybrid+stats","sub":"no post-processing","eer":0.0544,"kind":"neural","winner":false},{"label":"multiscale sup-con","sub":"no post-processing","eer":0.058,"kind":"neural","winner":false},{"label":"multiscale hybrid+stats","sub":"+ WCCN(auto)","eer":0.062,"kind":"neural","winner":false},{"label":"temporal hybrid","sub":"+ WCCN(auto)","eer":0.067,"kind":"neural","winner":false},{"label":"multiscale hybrid","sub":"+ WCCN(auto)","eer":0.072,"kind":"neural","winner":false},{"label":"multiscale sup-con","sub":"+ WCCN(auto)","eer":0.0776,"kind":"neural","winner":false},{"label":"legacy batch-hard","sub":"no post-processing","eer":0.082,"kind":"neural","winner":false},{"label":"legacy batch-hard","sub":"+ WCCN(auto)","eer":0.1094,"kind":"neural","winner":false},{"label":"descriptors","sub":"WCCN(auto)","eer":0.1102,"kind":"features","winner":false},{"label":"descriptors","sub":"WCCN(0.2)","eer":0.1128,"kind":"features","winner":false},{"label":"descriptors","sub":"standard","eer":0.1246,"kind":"features","winner":false}],"har":[{"label":"multiscale hybrid","sub":"no post-processing","eer":0.0304,"kind":"neural","winner":true},{"label":"multiscale hybrid","sub":"+ WCCN(auto)","eer":0.032,"kind":"neural","winner":false},{"label":"multiscale sup-con","sub":"+ WCCN(auto)","eer":0.0334,"kind":"neural","winner":false},{"label":"multiscale sup-con","sub":"no post-processing","eer":0.0336,"kind":"neural","winner":false},{"label":"multiscale batch-hard","sub":"no post-processing","eer":0.0552,"kind":"neural","winner":false},{"label":"multiscale batch-hard","sub":"+ WCCN(auto)","eer":0.0592,"kind":"neural","winner":false},{"label":"temporal hybrid","sub":"+ WCCN(auto)","eer":0.109,"kind":"neural","winner":false},{"label":"multiscale hybrid+stats","sub":"+ WCCN(auto)","eer":0.1112,"kind":"neural","winner":false},{"label":"legacy batch-hard","sub":"no post-processing","eer":0.1158,"kind":"neural","winner":false},{"label":"temporal hybrid","sub":"no post-processing","eer":0.116,"kind":"neural","winner":false},{"label":"descriptors","sub":"WCCN(0.2)","eer":0.1254,"kind":"features","winner":false},{"label":"legacy batch-hard","sub":"+ WCCN(auto)","eer":0.1284,"kind":"neural","winner":false},{"label":"descriptors","sub":"WCCN(auto)","eer":0.1298,"kind":"features","winner":false},{"label":"multiscale hybrid+stats","sub":"no post-processing","eer":0.1312,"kind":"neural","winner":false},{"label":"descriptors","sub":"standard","eer":0.1338,"kind":"features","winner":false}]},"classification":{"tracks":[{"label":"CNN baseline","sub":"1-D conv stack","new_acc":0.8215134034611469,"new_epoch":2,"new_time":37.19,"hist_acc":0.895487},{"label":"Multitask CNN","sub":"identity + activity heads","new_acc":0.9053274516457415,"new_epoch":5,"new_time":27.87,"hist_acc":0.908381},{"label":"CNN + LSTM","sub":"DeepConvLSTM","new_acc":0.8931116389548693,"new_epoch":1,"new_time":22.81,"hist_acc":0.930098},{"label":"SE attention CNN","sub":"squeeze-excite","new_acc":0.8961655921275874,"new_epoch":1,"new_time":24.95,"hist_acc":0.92942},{"label":"Vision transformer","sub":"patch transformer","new_acc":0.8727519511367492,"new_epoch":10,"new_time":48.99,"hist_acc":0.923651}],"wiker_acc":0.936885,"confusion":{"matrix":[[492,2,2,0,0,0],[6,446,15,1,0,3],[4,3,413,0,0,0],[1,25,0,350,115,0],[0,4,0,82,446,0],[0,0,16,0,0,521]],"rows":["Walking","Upstairs","Downstairs","Sitting","Standing","Laying"],"cols":["WALK","UP","DOWN","SIT","STAND","LAY"]}},"crossday":{"methods":[{"name":"Historical accel + mean template","short":"Accel baseline","color":"var(--c-base)","eer":0.07,"auc":0.9888,"fa":1,"fa_n":200,"fr":11,"fr_n":50},{"name":"Multisensor + two templates","short":"Multisensor","color":"var(--c-warn)","eer":0.025,"auc":0.9932,"fa":6,"fa_n":200,"fr":1,"fr_n":50},{"name":"+ lagged covariance","short":"+ lagcov","color":"var(--c-explore)","eer":0.025,"auc":0.9958,"fa":7,"fa_n":200,"fr":0,"fr_n":50},{"name":"lagcov + mean/two-template blend","short":"+ blend","color":"var(--c-cross)","eer":0.0,"auc":1.0,"fa":3,"fa_n":200,"fr":0,"fr_n":50}],"users":[{"id":6,"genuine":10,"old_frr":0.8,"old_fr":8,"new_frr":0.0,"new_fr":0},{"id":15,"genuine":10,"old_frr":0.0,"old_fr":0,"new_frr":0.0,"new_fr":0},{"id":22,"genuine":10,"old_frr":0.0,"old_fr":0,"new_frr":0.0,"new_fr":0},{"id":26,"genuine":10,"old_frr":0.1,"old_fr":1,"new_frr":0.0,"new_fr":0},{"id":28,"genuine":10,"old_frr":0.2,"old_fr":2,"new_frr":0.0,"new_fr":0}],"fa":3,"fr":0,"eer":0.0,"auc":1.0,"old_eer":0.07,"old_fr":11},"calibration":{"policies":[{"label":"Blend A","sub":"prior FAR\u22641% threshold, 9-person fit","far":0.009166666666666667,"frr":0.19275862068965519,"far_exact":"11/1200","frr_exact":"559/2900","splits":3,"winner":false},{"label":"Blend B","sub":"pooled threshold, 9-person fit","far":0.01752873563218391,"frr":0.1378735632183908,"far_exact":"61/3480","frr_exact":"2399/17400","splits":4,"winner":false},{"label":"Blend C","sub":"pooled threshold, 12-person refit","far":0.008362068965517241,"frr":0.15126436781609195,"far_exact":"97/11600","frr_exact":"329/2175","splits":3,"winner":true},{"label":"Blend D","sub":"order-statistic cutoff, 12-person refit","far":0.006666666666666667,"frr":0.2150574712643678,"far_exact":"1/150","frr_exact":"1871/8700","splits":3,"winner":false}],"far_before":0.917,"far_after":0.836,"frr_before":19.276,"frr_after":15.126,"triggered":true,"top_two_fa":8,"total_fa":11,"winner":"C","people_no_worse":12},"multisensor":{"rows":[{"label":"accel+gyro fusion","tag":"winner","eer":0.0667816091954023,"winner":false},{"label":"accel+gyro fusion (mean)","tag":"","eer":0.07011494252873562,"winner":false},{"label":"accel+gyro axes","tag":"","eer":0.07344827586206895,"winner":false},{"label":"accel+gyro invariant","tag":"","eer":0.09999999999999999,"winner":false},{"label":"accel axes","tag":"control","eer":0.11735632183908044,"winner":false},{"label":"accel invariant","tag":"","eer":0.1271264367816092,"winner":false}],"winner":"accel+gyro fusion","winner_eer":0.06678,"control_eer":0.11736},"backend":{"rows":[{"label":"lagged covariance","tag":"winner","eer":0.04873563218390805,"winner":true},{"label":"snorm + lagcov","tag":"","eer":0.04954022988505748,"winner":false},{"label":"snorm + nuisance","tag":"","eer":0.05545977011494253,"winner":false},{"label":"cohort score norm.","tag":"","eer":0.05715517241379311,"winner":false},{"label":"paired-day nuisance proj.","tag":"","eer":0.058850574712643676,"winner":false},{"label":"multisensor control","tag":"control","eer":0.05885057471264369,"winner":false},{"label":"historical accel baseline","tag":"comparison","eer":0.08896551724137931,"winner":false}],"winner":"lagged covariance","winner_eer":0.04873563218390805,"control_eer":0.05885057471264369,"oldbaseline_eer":0.08896551724137931,"n_splits":20},"transfer":{"har":{"axis":0.12026666666666667,"invariant":0.0956,"fusion":0.11486666666666666},"wisdm":{"axis":0.13106666666666666,"invariant":0.08713333333333334,"fusion":0.12126666666666668}},"runtime":{"baseline_b1":1.1066760052926838,"winner_b1":5.730636476073414,"baseline_b32":4.273576021660119,"winner_b32":13.794374011922628,"slowdown_b1":5.1782422756675075},"scaling":{"candidates":[{"label":"linear w32","sub":"30,252 params"},{"label":"linear w96","sub":"207,236 params"},{"label":"arcface w32","sub":"30,252 params"},{"label":"arcface w96","sub":"207,236 params"},{"label":"descriptors","sub":"centred cosine"},{"label":"descriptors + WCCN auto","sub":"whitened"},{"label":"descriptors + WCCN 0.2","sub":"whitened"}],"har":[{"eer":0.1820333333333333,"auc":0.89343306,"sd":7.61},{"eer":0.1869666666666667,"auc":0.8940704066666669,"sd":6.37},{"eer":0.1798,"auc":0.8995374399999999,"sd":8.15},{"eer":0.1859333333333333,"auc":0.8958092333333333,"sd":8.75},{"eer":0.11646666666666665,"auc":0.9496164666666667,"sd":4.15},{"eer":0.12026666666666667,"auc":0.9451636266666668,"sd":6.74},{"eer":0.11713333333333333,"auc":0.9485502266666667,"sd":7.07}],"wisdm":[{"eer":0.1856,"auc":0.88836906,"sd":9.86},{"eer":0.16329999999999997,"auc":0.9034059066666666,"sd":8.89},{"eer":0.1727,"auc":0.9062342200000001,"sd":8.96},{"eer":0.1625,"auc":0.9025759400000001,"sd":7.98},{"eer":0.147,"auc":0.92382868,"sd":7.53},{"eer":0.127,"auc":0.9402822133333333,"sd":8.82},{"eer":0.12633333333333333,"auc":0.9418636800000001,"sd":8.64}]},"perf":{"preproc":{"baseline_s":0.8009006580105051,"candidate_s":0.05093727901112288,"speedup":15.72327131638926},"throughput":[{"cpu":694.1018807657487,"gpu":6825.034409518618},{"cpu":5857.020841599085,"gpu":93604.25528114855},{"cpu":783.0709228550355,"gpu":8598.537079032003},{"cpu":8052.748226957028,"gpu":101408.3396797958}],"latency":[{"label":"Frozen baseline","params":"174,720","cpu":0.253,"cuda":0.525},{"label":"New member 1","params":"28,972","cpu":0.897,"cuda":1.658},{"label":"New ensemble \u00d73","params":"86,916","cpu":2.624,"cuda":4.507}],"compression":[{"label":"Activity accuracy","sub":"95.3% \u2192 66.4%","before":"95.31%","after":"66.41%","delta":-30.3},{"label":"Parameters","sub":"350k \u2192 172k","before":"350,406","after":"172,467","delta":-50.8},{"label":"FLOPs","sub":"7.05M \u2192 3.54M","before":"7,045,888","after":"3,543,616","delta":-49.7},{"label":"ONNX size","sub":"694 kB \u2192 312 kB","before":"694,388 B","after":"312,168 B","delta":-55.0}]}}};</script>
+<script>/* ------------------------------------------------------------------ *
+ *  Gait Biometrics — measured-results report
+ *  Dependency-free SVG charts + small interaction layer.
+ * ------------------------------------------------------------------ */
+(function () {
+  "use strict";
+
+  const D = window.REPORT_DATA || {};
+  const SVGNS = "http://www.w3.org/2000/svg";
+
+  /* ---------- helpers ---------- */
+  const el = (tag, attrs, kids) => {
+    const e = document.createElementNS(SVGNS, tag);
+    if (attrs) for (const k in attrs) if (attrs[k] !== null && attrs[k] !== undefined) e.setAttribute(k, attrs[k]);
+    if (kids) (Array.isArray(kids) ? kids : [kids]).forEach((c) => {
+      if (c === null || c === undefined) return;
+      e.appendChild(typeof c === "string" || typeof c === "number" ? document.createTextNode(String(c)) : c);
+    });
+    return e;
+  };
+  const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const pct = (x, d = 2) => (x * 100).toFixed(d) + "%";
+  const num = (x, d = 2) => Number(x).toFixed(d);
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const SERIES = {
+    base: css("--c-base"), good: css("--c-good"), warn: css("--c-warn"),
+    bad: css("--c-bad"), explore: css("--c-explore"), cross: css("--c-cross"), accent: css("--c-accent")
+  };
+
+  /* ---------- tooltip ---------- */
+  let tipEl = null;
+  function tip() {
+    if (!tipEl) {
+      tipEl = document.createElement("div");
+      tipEl.className = "tip";
+      document.body.appendChild(tipEl);
+    }
+    return tipEl;
+  }
+  function showTip(html, ev) {
+    const t = tip();
+    t.innerHTML = html;
+    t.classList.add("show");
+    const pad = 14, w = t.offsetWidth, h = t.offsetHeight;
+    let x = ev.clientX + pad, y = ev.clientY - h - 10;
+    if (x + w > window.innerWidth - 8) x = ev.clientX - w - pad;
+    if (y < 8) y = ev.clientY + pad;
+    t.style.left = x + "px";
+    t.style.top = y + "px";
+  }
+  function hideTip() { if (tipEl) tipEl.classList.remove("show"); }
+  function tipRows(title, rows) {
+    let h = '<div class="t-title">' + title + "</div>";
+    rows.forEach((r) => {
+      h += '<div class="t-row"><span>' + (r[2] ? '<span class="sw" style="background:' + r[2] + '"></span>' : "") + r[0] + "</span><b>" + r[1] + "</b></div>";
+    });
+    return h;
+  }
+
+  /* ---------- responsive mount ---------- */
+  const registry = [];
+  function mount(host, draw) {
+    if (!host) return;
+    const item = { host, draw, w: 0 };
+    registry.push(item);
+    const render = () => {
+      const w = host.clientWidth;
+      if (!w) return;
+      item.w = w;
+      host.innerHTML = "";
+      draw(host, w);
+    };
+    render();
+    const ro = new ResizeObserver(() => {
+      const w = host.clientWidth;
+      if (Math.abs(w - item.w) > 6) render();
+    });
+    ro.observe(host);
+  }
+  let rt = null;
+  window.addEventListener("resize", () => {
+    clearTimeout(rt);
+    rt = setTimeout(() => { if (document.documentElement.dataset.theme !== "light") { } registry.forEach((i) => i.draw(i.host, i.host.clientWidth)); }, 180);
+  });
+
+  /* ---------- axis scaffolding ---------- */
+  function frame(svg, W, H, pad) {
+    const g = el("g", { transform: "translate(" + pad.l + "," + pad.t + ")" });
+    svg.appendChild(g);
+    const iw = W - pad.l - pad.r, ih = H - pad.t - pad.b;
+    return { g, iw, ih };
+  }
+  function yAxis(g, iw, ih, scale, ticks, fmt, opts) {
+    opts = opts || {};
+    ticks.forEach((t) => {
+      const y = scale(t);
+      g.appendChild(el("line", { x1: 0, x2: iw, y1: y, y2: y, stroke: css("--border-soft"), "stroke-width": 1, "stroke-dasharray": opts.dash || "none" }));
+      g.appendChild(el("text", { x: -8, y: y + 3.5, "text-anchor": "end", "font-size": 10.5, fill: css("--text-faint"), "font-family": "var(--mono)" }, fmt(t)));
+    });
+    g.appendChild(el("line", { x1: 0, x2: 0, y1: 0, y2: ih, stroke: css("--border"), "stroke-width": 1 }));
+    if (opts.baseline !== undefined) {
+      const y = scale(opts.baseline);
+      g.appendChild(el("line", { x1: 0, x2: iw, y1: y, y2: y, stroke: opts.baselineColor || css("--c-bad"), "stroke-width": 1.5, "stroke-dasharray": "5 4" }));
+    }
+  }
+  function niceTicks(max, count) {
+    const raw = max / count;
+    const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+    const norm = raw / mag;
+    const step = (norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 5 ? 5 : 10) * mag;
+    const out = [];
+    for (let v = 0; v <= max + 1e-9; v += step) out.push(Number(v.toFixed(10)));
+    return out;
+  }
+
+  /* ---------- vertical grouped bars ---------- */
+  function groupedBars(host, cfg) {
+    mount(host, (h, W) => {
+      const H = cfg.height || 300;
+      const pad = { l: 52, r: 14, t: 24, b: cfg.bottomPad || 54 };
+      const svg = el("svg", { width: W, height: H, viewBox: "0 0 " + W + " " + H });
+      h.appendChild(svg);
+      const { g, iw, ih } = frame(svg, W, H, pad);
+      const cats = cfg.categories, series = cfg.series;
+      const maxV = cfg.max !== undefined ? cfg.max : Math.max.apply(null, series.flatMap((s) => s.values.map((v) => v.v + (v.err || 0))));
+      const scale = (v) => ih - (v / maxV) * ih;
+      yAxis(g, iw, ih, scale, niceTicks(maxV, 5), cfg.yFmt || ((v) => v), { baseline: cfg.baseline, baselineColor: cfg.baselineColor });
+
+      const bandW = iw / cats.length;
+      const groupW = bandW * 0.72;
+      const barW = groupW / series.length;
+      const rotate = bandW < 78;
+      const bottom = rotate ? Math.max(cfg.bottomPad || 54, 86) : (cfg.bottomPad || 54);
+      cats.forEach((cat, ci) => {
+        const x0 = ci * bandW + (bandW - groupW) / 2;
+        series.forEach((s, si) => {
+          const d = s.values[ci];
+          if (!d) return;
+          const x = x0 + si * barW;
+          const y = scale(d.v);
+          const bh = Math.max(1, ih - y);
+          const rect = el("rect", { x: x + 1, y: y, width: barW - 3, height: bh, rx: Math.min(4, barW / 4), fill: d.color || s.color, opacity: d.opacity || 0.95 });
+          rect.style.transition = "opacity .12s";
+          rect.addEventListener("mouseenter", (e) => { rect.setAttribute("opacity", 1); showTip(tipRows(cat.title || cat.label, (d.rows || [[cfg.valueLabel || "value", cfg.valueFmt ? cfg.valueFmt(d.v) : num(d.v), d.color || s.color]])), e); });
+          rect.addEventListener("mousemove", (e) => showTip(tipRows(cat.title || cat.label, d.rows || [[cfg.valueLabel || "value", cfg.valueFmt ? cfg.valueFmt(d.v) : num(d.v), d.color || s.color]]), e));
+          rect.addEventListener("mouseleave", () => { rect.setAttribute("opacity", d.opacity || 0.95); hideTip(); });
+          g.appendChild(rect);
+          if (d.err) {
+            const yTop = scale(d.v + d.err), yBot = scale(d.v - d.err);
+            g.appendChild(el("line", { x1: x + barW / 2 - 1, x2: x + barW / 2 - 1, y1: yTop, y2: yBot, stroke: css("--text-faint"), "stroke-width": 1 }));
+          }
+          if (cfg.showValues !== false && barW > 26) {
+            g.appendChild(el("text", { x: x + barW / 2 - 1, y: y - 5, "text-anchor": "middle", "font-size": 10.5, "font-weight": 650, fill: css("--text"), "font-family": "var(--mono)" }, cfg.valueFmt ? cfg.valueFmt(d.v) : num(d.v)));
+          }
+        });
+        const cx = ci * bandW + bandW / 2;
+        if (rotate) {
+          g.appendChild(el("text", { x: cx, y: ih + 14, "text-anchor": "end", "font-size": 10.5, fill: css("--text-dim"), "font-weight": 600, transform: "rotate(-38 " + cx + "," + (ih + 14) + ")" }, cat.label));
+        } else {
+          g.appendChild(el("text", { x: cx, y: ih + 16, "text-anchor": "middle", "font-size": 11, fill: css("--text-dim"), "font-weight": 600 }, cat.label));
+          if (cat.sub) g.appendChild(el("text", { x: cx, y: ih + 30, "text-anchor": "middle", "font-size": 9.5, fill: css("--text-faint"), "font-family": "var(--mono)" }, cat.sub));
+        }
+      });
+      if (cfg.axisLabel) g.appendChild(el("text", { x: -pad.l + 12, y: -12, "font-size": 10.5, fill: css("--text-faint") }, cfg.axisLabel));
+    });
+  }
+
+  /* ---------- horizontal bars ---------- */
+  function hBars(host, cfg) {
+    mount(host, (h, W) => {
+      const H = cfg.height || 300;
+      const pad = { l: cfg.left || 150, r: 60, t: 8, b: 34 };
+      const svg = el("svg", { width: W, height: H, viewBox: "0 0 " + W + " " + H });
+      h.appendChild(svg);
+      const { g, iw, ih } = frame(svg, W, H, pad);
+      const cats = cfg.categories, series = cfg.series;
+      const maxV = cfg.max !== undefined ? cfg.max : Math.max.apply(null, series.flatMap((s) => s.values.map((v) => (v && v.v) || 0)));
+      const scale = (v) => (v / maxV) * iw;
+      const bandH = ih / cats.length;
+      const groupH = bandH * 0.66;
+      const barH = groupH / series.length;
+      cats.forEach((cat, ci) => {
+        const y0 = ci * bandH + (bandH - groupH) / 2;
+        series.forEach((s, si) => {
+          const d = s.values[ci];
+          if (!d) return;
+          const y = y0 + si * barH;
+          const w = Math.max(1, scale(d.v));
+          const rect = el("rect", { x: 0, y: y + 1, width: w, height: barH - 3, rx: Math.min(4, barH / 3), fill: d.color || s.color, opacity: d.opacity !== undefined ? d.opacity : 0.95 });
+          rect.addEventListener("mouseenter", (e) => showTip(tipRows(cat.title || cat.label, d.rows || [[cfg.valueLabel || "value", cfg.valueFmt ? cfg.valueFmt(d.v) : num(d.v), d.color || s.color]]), e));
+          rect.addEventListener("mousemove", (e) => showTip(tipRows(cat.title || cat.label, d.rows || [[cfg.valueLabel || "value", cfg.valueFmt ? cfg.valueFmt(d.v) : num(d.v), d.color || s.color]]), e));
+          rect.addEventListener("mouseleave", hideTip);
+          g.appendChild(rect);
+          g.appendChild(el("text", { x: w + 6, y: y + barH / 2 + 3.5, "font-size": 10.5, "font-weight": 650, fill: css("--text"), "font-family": "var(--mono)" }, cfg.valueFmt ? cfg.valueFmt(d.v) : num(d.v)));
+        });
+        g.appendChild(el("text", { x: -10, y: ci * bandH + bandH / 2 + 4, "text-anchor": "end", "font-size": 11.5, fill: css("--text-dim"), "font-weight": 600 }, cat.label));
+        if (cat.sub && bandH >= 23) g.appendChild(el("text", { x: -10, y: ci * bandH + bandH / 2 + 17, "text-anchor": "end", "font-size": 9.5, fill: css("--text-faint") }, cat.sub));
+      });
+      const ticks = niceTicks(maxV, 5);
+      ticks.forEach((t) => {
+        const x = scale(t);
+        g.appendChild(el("line", { x1: x, x2: x, y1: 0, y2: ih, stroke: css("--border-soft"), "stroke-width": 1 }));
+        g.appendChild(el("text", { x: x, y: ih + 16, "text-anchor": "middle", "font-size": 10, fill: css("--text-faint"), "font-family": "var(--mono)" }, cfg.xFmt ? cfg.xFmt(t) : num(t)));
+      });
+      if (cfg.ref !== undefined) {
+        const x = scale(cfg.ref);
+        g.appendChild(el("line", { x1: x, x2: x, y1: -4, y2: ih, stroke: cfg.refColor || css("--c-warn"), "stroke-width": 1.5, "stroke-dasharray": "5 4" }));
+        if (cfg.refLabel) g.appendChild(el("text", { x: x - 6, y: 9, "text-anchor": "end", "font-size": 9.5, fill: cfg.refColor || css("--c-warn"), "font-weight": 650 }, cfg.refLabel));
+      }
+    });
+  }
+
+  /* ---------- line chart ---------- */
+  function lineChart(host, cfg) {
+    mount(host, (h, W) => {
+      const H = cfg.height || 320;
+      const pad = { l: 52, r: 16, t: 14, b: 40 };
+      const svg = el("svg", { width: W, height: H, viewBox: "0 0 " + W + " " + H });
+      h.appendChild(svg);
+      const { g, iw, ih } = frame(svg, W, H, pad);
+      const all = cfg.series.flatMap((s) => s.points.map((p) => p.y));
+      let min = cfg.min !== undefined ? cfg.min : Math.min.apply(null, all);
+      let max = cfg.max !== undefined ? cfg.max : Math.max.apply(null, all);
+      const padY = (max - min) * 0.12 || 0.02;
+      min = Math.max(0, min - padY); max = max + padY;
+      const xs = cfg.series[0].points.map((p) => p.x);
+      const xMin = Math.min.apply(null, xs), xMax = Math.max.apply(null, xs);
+      const sx = (x) => ((x - xMin) / (xMax - xMin || 1)) * iw;
+      const sy = (y) => ih - ((y - min) / (max - min || 1)) * ih;
+      const ticks = cfg.ticks || 4;
+      for (let i = 0; i <= ticks; i++) {
+        const v = min + ((max - min) * i) / ticks;
+        const y = sy(v);
+        g.appendChild(el("line", { x1: 0, x2: iw, y1: y, y2: y, stroke: css("--border-soft"), "stroke-width": 1 }));
+        g.appendChild(el("text", { x: -8, y: y + 3.5, "text-anchor": "end", "font-size": 10.5, fill: css("--text-faint"), "font-family": "var(--mono)" }, cfg.yFmt ? cfg.yFmt(v) : num(v, 3)));
+      }
+      g.appendChild(el("line", { x1: 0, x2: 0, y1: 0, y2: ih, stroke: css("--border"), "stroke-width": 1 }));
+      g.appendChild(el("line", { x1: 0, x2: iw, y1: ih, y2: ih, stroke: css("--border"), "stroke-width": 1 }));
+      (cfg.xTicks || [1, 10, 20, 30, 40]).forEach((t) => {
+        if (t < xMin || t > xMax) return;
+        g.appendChild(el("text", { x: sx(t), y: ih + 16, "text-anchor": "middle", "font-size": 10, fill: css("--text-faint"), "font-family": "var(--mono)" }, t));
+      });
+      if (cfg.refs) cfg.refs.forEach((r) => {
+        const y = sy(r.value);
+        g.appendChild(el("line", { x1: 0, x2: iw, y1: y, y2: y, stroke: r.color, "stroke-width": 1.4, "stroke-dasharray": "5 4" }));
+        g.appendChild(el("text", { x: 4, y: y - 6, "font-size": 10, fill: r.color, "font-weight": 650 }, r.label));
+      });
+      cfg.series.forEach((s) => {
+        const d = s.points.map((p, i) => (i ? "L" : "M") + sx(p.x) + " " + sy(p.y)).join(" ");
+        g.appendChild(el("path", { d: d, fill: "none", stroke: s.color, "stroke-width": s.width || 2.2, "stroke-linejoin": "round", "stroke-linecap": "round", opacity: s.opacity || 1 }));
+        if (s.points.length <= 60) {
+          s.points.forEach((p) => {
+            const c = el("circle", { cx: sx(p.x), cy: sy(p.y), r: s.dotR || 2.6, fill: css("--bg"), stroke: s.color, "stroke-width": 1.8 });
+            c.addEventListener("mouseenter", (e) => showTip(tipRows((s.name || "") + " — " + (p.label || "epoch " + p.x), (p.rows || [["value", cfg.yFmt ? cfg.yFmt(p.y) : num(p.y, 4)]])), e));
+            c.addEventListener("mousemove", (e) => showTip(tipRows((s.name || "") + " — " + (p.label || "epoch " + p.x), (p.rows || [["value", cfg.yFmt ? cfg.yFmt(p.y) : num(p.y, 4)]])), e));
+            c.addEventListener("mouseleave", hideTip);
+            g.appendChild(c);
+          });
+        }
+        if (s.mark !== undefined) {
+          const p = s.points.find((q) => q.x === s.mark) || s.points[s.mark];
+          if (p) {
+            g.appendChild(el("circle", { cx: sx(p.x), cy: sy(p.y), r: 6.5, fill: "none", stroke: s.color, "stroke-width": 2 }));
+            g.appendChild(el("text", { x: sx(p.x), y: sy(p.y) - 12, "text-anchor": "middle", "font-size": 10, fill: s.color, "font-weight": 700 }, s.markLabel || ("best e" + p.x)));
+          }
+        }
+      });
+    });
+  }
+
+  /* ---------- heatmap ---------- */
+  function heatmap(host, cfg) {
+    mount(host, (h, W) => {
+      const m = cfg.matrix, rows = cfg.rowLabels, cols = cfg.colLabels;
+      const pad = { l: Math.min(132, Math.max(78, Math.round(W * 0.4))), r: 10, t: 8, b: 26 };
+      const cell = Math.max(16, Math.min(58, (W - pad.l - pad.r - 4) / cols.length));
+      const H = cell * rows.length + pad.t + pad.b + 16;
+      const svg = el("svg", { width: W, height: H, viewBox: "0 0 " + W + " " + H });
+      h.appendChild(svg);
+      const g = el("g", { transform: "translate(" + pad.l + "," + pad.t + ")" });
+      svg.appendChild(g);
+      const maxV = Math.max.apply(null, m.flat());
+      rows.forEach((r, i) => {
+        g.appendChild(el("text", { x: -10, y: i * cell + cell / 2 + 4, "text-anchor": "end", "font-size": 10.5, fill: css("--text-dim"), "font-weight": 600 }, r));
+        cols.forEach((c, j) => {
+          const v = m[i][j];
+          const t = maxV ? v / maxV : 0;
+          const rect = el("rect", { x: j * cell + 1, y: i * cell + 1, width: cell - 2, height: cell - 2, rx: 4, fill: css("--accent"), opacity: 0.08 + 0.72 * Math.pow(t, 0.8) });
+          rect.addEventListener("mouseenter", (e) => showTip(tipRows(r + " → " + c, [["samples", String(v)], ["share of row", pct(v / Math.max(1, m[i].reduce((a, b) => a + b, 0)), 1)]]), e));
+          rect.addEventListener("mousemove", (e) => showTip(tipRows(r + " → " + c, [["samples", String(v)], ["share of row", pct(v / Math.max(1, m[i].reduce((a, b) => a + b, 0)), 1)]]), e));
+          rect.addEventListener("mouseleave", hideTip);
+          g.appendChild(rect);
+          g.appendChild(el("text", { x: j * cell + cell / 2, y: i * cell + cell / 2 + 3.5, "text-anchor": "middle", "font-size": 10.5, "font-weight": 600, fill: t > 0.55 ? "#06231f" : css("--text") }, String(v)));
+        });
+      });
+      cols.forEach((c, j) => g.appendChild(el("text", { x: j * cell + cell / 2, y: rows.length * cell + 14, "text-anchor": "middle", "font-size": 9.5, fill: css("--text-faint") }, c)));
+    });
+  }
+
+  /* ---------- segmented bar (error budget) ---------- */
+  function segmented(host, cfg) {
+    mount(host, (h, W) => {
+      // wrap the caption across lines that fit the width
+      let capLines = [];
+      if (cfg.footer) {
+        const words = cfg.footer.split(" ");
+        let line = "";
+        const maxChars = Math.max(30, Math.floor(W / 5.6));
+        words.forEach((w) => {
+          const test = line ? line + " " + w : w;
+          if (test.length > maxChars) { capLines.push(line); line = w; } else { line = test; }
+        });
+        if (line) capLines.push(line);
+        capLines = capLines.slice(0, 3);
+      }
+      const barY = 26, barH = 34;
+      const H = cfg.height || (barY + barH + 26 + capLines.length * 15);
+      const svg = el("svg", { width: W, height: H, viewBox: "0 0 " + W + " " + H });
+      h.appendChild(svg);
+      const total = cfg.parts.reduce((a, p) => a + p.v, 0) || 1;
+      const gap = 3;
+      let x = 0;
+      const avail = W - gap * (cfg.parts.length - 1);
+      cfg.parts.forEach((p) => {
+        const w = (p.v / total) * avail;
+        const rect = el("rect", { x: x, y: barY, width: Math.max(2, w), height: barH, rx: 6, fill: p.color });
+        const tTitle = p.desc ? p.label + " — " + p.desc : p.label;
+        rect.addEventListener("mouseenter", (e) => showTip(tipRows(tTitle, [["count", String(p.v)], ["share", pct(p.v / total, 1)]]), e));
+        rect.addEventListener("mousemove", (e) => showTip(tipRows(tTitle, [["count", String(p.v)], ["share", pct(p.v / total, 1)]]), e));
+        rect.addEventListener("mouseleave", hideTip);
+        svg.appendChild(rect);
+        if (w > 22) svg.appendChild(el("text", { x: x + Math.max(2, w) / 2, y: barY + barH / 2 + 4, "text-anchor": "middle", "font-size": 11.5, "font-weight": 700, fill: "#06231f" }, String(p.v)));
+        if (w > 74) svg.appendChild(el("text", { x: x + Math.max(2, w) / 2, y: barY - 9, "text-anchor": "middle", "font-size": 10.5, fill: css("--text-dim"), "font-weight": 600 }, p.label));
+        x += w + gap;
+      });
+      // wrap the caption across lines that fit the width
+      capLines.forEach((ln, i) => {
+        svg.appendChild(el("text", { x: 0, y: barY + barH + 20 + i * 15, "font-size": 11, fill: css("--text-faint") }, ln));
+      });
+    });
+  }
+
+  /* ---------- log-scale grouped bars (throughput) ---------- */
+  function logBars(host, cfg) {
+    mount(host, (h, W) => {
+      const H = cfg.height || 260;
+      const pad = { l: 58, r: 14, t: 12, b: 46 };
+      const svg = el("svg", { width: W, height: H, viewBox: "0 0 " + W + " " + H });
+      h.appendChild(svg);
+      const { g, iw, ih } = frame(svg, W, H, pad);
+      const cats = cfg.categories, series = cfg.series;
+      const maxV = Math.max.apply(null, series.flatMap((s) => s.values.map((v) => v.v)));
+      const lmin = Math.log10(cfg.min || 10), lmax = Math.log10(maxV * 1.35);
+      const scale = (v) => ih - ((Math.log10(Math.max(v, 1)) - lmin) / (lmax - lmin)) * ih;
+      [cfg.min || 10, 100, 1000, 10000, 100000].filter((t) => t <= maxV * 1.35).forEach((t) => {
+        const y = scale(t);
+        g.appendChild(el("line", { x1: 0, x2: iw, y1: y, y2: y, stroke: css("--border-soft"), "stroke-width": 1 }));
+        g.appendChild(el("text", { x: -8, y: y + 3.5, "text-anchor": "end", "font-size": 10, fill: css("--text-faint"), "font-family": "var(--mono)" }, t >= 1000 ? (t / 1000) + "k" : t));
+      });
+      g.appendChild(el("line", { x1: 0, x2: 0, y1: 0, y2: ih, stroke: css("--border"), "stroke-width": 1 }));
+      const bandW = iw / cats.length, groupW = bandW * 0.68, barW = groupW / series.length;
+      const rotate = bandW < 96;
+      const bottom = rotate ? Math.max(pad.b, 78) : pad.b;
+      cats.forEach((cat, ci) => {
+        const x0 = ci * bandW + (bandW - groupW) / 2;
+        series.forEach((s, si) => {
+          const d = s.values[ci];
+          if (!d) return;
+          const x = x0 + si * barW;
+          const y = scale(d.v);
+          const rect = el("rect", { x: x + 1, y: y, width: barW - 4, height: Math.max(2, ih - y), rx: 4, fill: d.color || s.color });
+          rect.addEventListener("mouseenter", (e) => showTip(tipRows(cat.title || cat.label, d.rows || [["value", cfg.valueFmt ? cfg.valueFmt(d.v) : num(d.v)]]), e));
+          rect.addEventListener("mousemove", (e) => showTip(tipRows(cat.title || cat.label, d.rows || [["value", cfg.valueFmt ? cfg.valueFmt(d.v) : num(d.v)]]), e));
+          rect.addEventListener("mouseleave", hideTip);
+          g.appendChild(rect);
+          if (barW > 34) g.appendChild(el("text", { x: x + barW / 2 - 1, y: y - 5, "text-anchor": "middle", "font-size": 10, "font-weight": 650, fill: css("--text"), "font-family": "var(--mono)" }, cfg.valueFmt ? cfg.valueFmt(d.v) : num(d.v)));
+        });
+        const cx = ci * bandW + bandW / 2;
+        if (rotate) {
+          g.appendChild(el("text", { x: cx, y: ih + 12, "text-anchor": "end", "font-size": 10, fill: css("--text-dim"), "font-weight": 600, transform: "rotate(-38 " + cx + "," + (ih + 12) + ")" }, cat.label));
+        } else {
+          g.appendChild(el("text", { x: cx, y: ih + 16, "text-anchor": "middle", "font-size": 11, fill: css("--text-dim"), "font-weight": 600 }, cat.label));
+          if (cat.sub) g.appendChild(el("text", { x: cx, y: ih + 30, "text-anchor": "middle", "font-size": 9.5, fill: css("--text-faint"), "font-family": "var(--mono)" }, cat.sub));
+        }
+      });
+    });
+  }
+
+  /* ================================================================== *
+   *  Report wiring
+   * ================================================================== */
+  function build() {
+    const S = D.series;
+
+    /* ---- KPI values ---- */
+    document.querySelectorAll("[data-kpi]").forEach((node) => {
+      const k = node.getAttribute("data-kpi");
+      const spec = S.kpi[k];
+      if (!spec) return;
+      node.innerHTML =
+        '<div class="label">' + spec.label + "</div>" +
+        '<div class="value">' + spec.value + (spec.unit ? '<span class="unit">' + spec.unit + "</span>" : "") + "</div>" +
+        (spec.delta ? '<div class="delta ' + (spec.deltaClass || "d-flat") + '">' + spec.delta + "</div>" : "") +
+        '<div class="foot">' + spec.foot + "</div>";
+    });
+
+    /* ---- Chart 1: verification ---- */
+    const vHost = document.getElementById("chart-verification");
+    const vMetrics = {
+      eer: { label: "EER (lower is better)", fmt: (v) => pct(v, 2), max: 0.25, axis: "EER" },
+      auc: { label: "ROC AUC (higher is better)", fmt: (v) => num(v, 4), max: 1.0, axis: "ROC AUC" },
+      far: { label: "Fixed FAR (lower is better)", fmt: (v) => pct(v, 2), max: 0.2, axis: "FAR" },
+      frr: { label: "Fixed FRR (lower is better)", fmt: (v) => pct(v, 2), max: 0.5, axis: "FRR" }
+    };
+    function drawVerification(metric) {
+      const m = vMetrics[metric];
+      const cats = S.verification.map((r) => ({ label: r.short, sub: r.dataset, title: r.name }));
+      const series = [{
+        color: SERIES.accent,
+        values: S.verification.map((r) => ({
+          v: r[metric], color: r.color, rows: [
+            [m.label.split(" (")[0], m.fmt(r[metric]), r.color],
+            ["status", r.status, null],
+            ["notes", r.note, null]
+          ]
+        }))
+      }];
+      groupedBars(vHost, {
+        height: 330, categories: cats, series: series, max: m.max, bottomPad: 60,
+        yFmt: (v) => (metric === "auc" ? num(v, 1) : pct(v, 0)),
+        valueFmt: m.fmt, axisLabel: m.axis
+      });
+    }
+    drawVerification("eer");
+    const vSeg = document.getElementById("seg-verification");
+    if (vSeg) vSeg.addEventListener("click", (e) => {
+      const b = e.target.closest("button"); if (!b) return;
+      vSeg.querySelectorAll("button").forEach((x) => x.classList.remove("on"));
+      b.classList.add("on");
+      drawVerification(b.getAttribute("data-metric"));
+    });
+
+    /* ---- Chart 2: training curves ---- */
+    const cHost = document.getElementById("chart-curves");
+    const cMetrics = {
+      val_eer: { label: "validation EER", fmt: (v) => pct(v, 2), max: 0.32, min: 0 },
+      val_roc_auc: { label: "validation ROC AUC", fmt: (v) => num(v, 3), max: 1.0, min: 0.7 },
+      loss: { label: "training loss", fmt: (v) => num(v, 3), max: null, min: null }
+    };
+    function drawCurves(metric) {
+      const m = cMetrics[metric];
+      const series = S.curves.map((c) => ({
+        name: c.name, color: c.color, mark: c.best_epoch, markLabel: "best e" + c.best_epoch,
+        points: c.points.map((p) => ({ x: p.epoch, y: p[metric], rows: [["epoch", String(p.epoch)], [m.label, m.fmt(p[metric])]] }))
+      }));
+      lineChart(cHost, {
+        height: 330, series: series, min: m.min, max: m.max, yFmt: (v) => (metric === "val_roc_auc" ? num(v, 2) : pct(v, 0)),
+        xTicks: [1, 10, 20, 30, 40],
+        refs: metric === "val_eer" ? S.curves.map((c) => ({ value: c.test_eer, label: c.short + " locked test EER " + pct(c.test_eer, 2), color: c.color })) : null
+      });
+    }
+    drawCurves("val_eer");
+    const cSeg = document.getElementById("seg-curves");
+    if (cSeg) cSeg.addEventListener("click", (e) => {
+      const b = e.target.closest("button"); if (!b) return;
+      cSeg.querySelectorAll("button").forEach((x) => x.classList.remove("on"));
+      b.classList.add("on");
+      drawCurves(b.getAttribute("data-metric"));
+    });
+
+    /* ---- Chart 2b: validation candidate landscape ---- */
+    const lHost = document.getElementById("chart-landscape");
+    function drawLandscape(ds) {
+      const rows = S.landscape[ds];
+      hBars(lHost, {
+        height: 420, left: 168, max: Math.max(0.16, Math.max.apply(null, rows.map((r) => r.eer)) * 1.15),
+        xFmt: (v) => (v * 100).toFixed(0) + "%",
+        categories: rows.map((r) => ({ label: r.label, sub: r.sub })),
+        series: [{
+          color: SERIES.accent,
+          values: rows.map((r) => ({
+            v: r.eer,
+            color: r.winner ? SERIES.accent : (r.kind === "features" ? SERIES.explore : SERIES.base),
+            rows: [["validation EER", pct(r.eer, 2), r.winner ? SERIES.accent : SERIES.base], ["family", r.kind], ["selected", r.winner ? "yes — locked for test" : "no"]]
+          }))
+        }],
+        valueFmt: (v) => pct(v, 2)
+      });
+    }
+    if (lHost) {
+      drawLandscape("wisdm");
+      const lSeg = document.getElementById("seg-landscape");
+      if (lSeg) lSeg.addEventListener("click", (e) => {
+        const b = e.target.closest("button"); if (!b) return;
+        lSeg.querySelectorAll("button").forEach((x) => x.classList.remove("on"));
+        b.classList.add("on");
+        drawLandscape(b.getAttribute("data-ds"));
+      });
+    }
+
+    /* ---- Chart 3: activity classification ---- */
+    const aHost = document.getElementById("chart-activity");
+    const tracks = S.classification.tracks;
+    hBars(aHost, {
+      height: 300, left: 172, max: 1.0, xFmt: (v) => (v * 100).toFixed(0) + "%",
+      categories: tracks.map((t) => ({ label: t.label, sub: t.sub })),
+      series: [
+        { color: SERIES.accent, values: tracks.map((t) => ({ v: t.new_acc, color: SERIES.accent, rows: [["validation-selected sweep", pct(t.new_acc, 2), SERIES.accent], ["selected epoch", "e" + t.new_epoch], ["train time", t.new_time + " s"], ["status", "current protocol"]] })) },
+        { color: SERIES.base, values: tracks.map((t) => ({ v: t.hist_acc, color: SERIES.base, opacity: 0.75, rows: [["historical (train-loss selected)", pct(t.hist_acc, 2), SERIES.base], ["status", "different selection rule"]] })) }
+      ],
+      valueFmt: (v) => pct(v, 2),
+      ref: S.classification.wiker_acc, refColor: SERIES.warn,
+      refLabel: "best historical run 0.9369"
+    });
+
+    /* ---- Chart 4: confusion matrix ---- */
+    const cm = S.classification.confusion;
+    heatmap(document.getElementById("chart-confusion"), {
+      matrix: cm.matrix, rowLabels: cm.rows, colLabels: cm.cols
+    });
+
+    /* ---- Chart 5a: cross-day progression ---- */
+    const cdHost = document.getElementById("chart-crossday-progress");
+    const methods = S.crossday.methods;
+    hBars(cdHost, {
+      height: 220, left: 180, max: 0.08, xFmt: (v) => (v * 100).toFixed(1) + "%",
+      categories: methods.map((m) => ({ label: m.short, sub: m.name })),
+      series: [{ color: SERIES.cross, values: methods.map((m) => ({ v: m.eer, color: m.color, rows: [["EER", pct(m.eer, 2), m.color], ["ROC AUC", num(m.auc, 4)], ["false accepts", m.fa + "/" + m.fa_n + " (" + pct(m.fa / m.fa_n, 1) + ")"], ["genuine rejections", m.fr + "/" + m.fr_n + " (" + pct(m.fr / m.fr_n, 1) + ")"]] })) }],
+      valueFmt: (v) => pct(v, 1)
+    });
+
+    /* ---- Chart 5b: cross-day per user, before/after ---- */
+    const uHost = document.getElementById("chart-crossday-users");
+    const users = S.crossday.users;
+    groupedBars(uHost, {
+      height: 250, bottomPad: 50, max: 1.0, yFmt: (v) => pct(v, 0), valueFmt: (v) => pct(v, 0),
+      categories: users.map((u) => ({ label: "user " + u.id, sub: u.genuine + " genuine claims" })),
+      series: [
+        { color: SERIES.base, values: users.map((u) => ({ v: u.old_frr, color: u.old_frr > 0.3 ? SERIES.bad : SERIES.base, opacity: 0.72, rows: [["old false rejects", u.old_fr + "/" + u.genuine], ["old FRR", pct(u.old_frr, 1)]] })) },
+        { color: SERIES.cross, values: users.map((u) => ({ v: u.new_frr, color: u.new_frr > 0.3 ? SERIES.bad : SERIES.cross, rows: [["new false rejects", u.new_fr + "/" + u.genuine], ["new FRR", pct(u.new_frr, 1)]] })) }
+      ]
+    });
+
+    /* ---- Chart 5c: cross-day error budget ---- */
+    segmented(document.getElementById("chart-crossday-budget"), {
+      parts: [
+        { label: "false accepts", desc: "impostor accepted", v: S.crossday.fa, color: SERIES.warn },
+        { label: "false rejects", desc: "genuine refused", v: S.crossday.fr, color: SERIES.bad }
+      ],
+      footer: "250 decisions: 50 genuine claims, 200 directed impostor claims. Decisions reuse people, templates and trials, so they are not independent observations."
+    });
+
+    /* ---- Chart 6: scaling study ---- */
+    const sHost = document.getElementById("chart-scaling");
+    const sc = S.scaling;
+    groupedBars(sHost, {
+      height: 320, bottomPad: 62,
+      categories: sc.candidates.map((c) => ({ label: c.label, sub: c.sub })),
+      series: [
+        { color: SERIES.base, values: sc.har.map((v, i) => ({ v: v.eer, err: v.sd, color: SERIES.base, rows: [["HAR mean fold EER", pct(v.eer, 2), SERIES.base], ["fold SD", num(v.sd, 2) + " pp"], ["AUC", num(v.auc, 4)]] })) },
+        { color: SERIES.explore, values: sc.wisdm.map((v) => ({ v: v.eer, err: v.sd, color: SERIES.explore, rows: [["WISDM mean fold EER", pct(v.eer, 2), SERIES.explore], ["fold SD", num(v.sd, 2) + " pp"], ["AUC", num(v.auc, 4)]] })) }
+      ],
+      max: 0.22, yFmt: (v) => pct(v, 0), valueFmt: (v) => pct(v, 2), axisLabel: "mean development-fold EER"
+    });
+
+    /* ---- Chart 6b: transfer invariance ---- */
+    const tHost = document.getElementById("chart-transfer");
+    if (tHost) {
+      const tr = S.transfer;
+      groupedBars(tHost, {
+        height: 240, bottomPad: 50, max: 0.15, yFmt: (v) => pct(v, 0), valueFmt: (v) => pct(v, 2),
+        categories: [
+          { label: "axis-aligned", sub: "raw axes" },
+          { label: "rotation-invariant", sub: "orientation-free" },
+          { label: "fusion", sub: "axis + invariant" }
+        ],
+        series: [
+          { color: SERIES.base, values: [
+            { v: tr.har.axis, color: SERIES.base, rows: [["HAR axis EER", pct(tr.har.axis, 2), SERIES.base], ["WISDM axis EER", pct(tr.wisdm.axis, 2), SERIES.explore]] },
+            { v: tr.har.invariant, color: SERIES.explore, rows: [["HAR invariant EER", pct(tr.har.invariant, 2), SERIES.explore], ["WISDM invariant EER", pct(tr.wisdm.invariant, 2), SERIES.explore]] },
+            { v: tr.har.fusion, color: SERIES.warn, rows: [["HAR fusion EER", pct(tr.har.fusion, 2), SERIES.warn], ["WISDM fusion EER", pct(tr.wisdm.fusion, 2), SERIES.warn]] }
+          ] },
+          { color: SERIES.explore, values: [
+            { v: tr.wisdm.axis, color: SERIES.base, rows: [["WISDM axis EER", pct(tr.wisdm.axis, 2), SERIES.explore]] },
+            { v: tr.wisdm.invariant, color: SERIES.explore, rows: [["WISDM invariant EER", pct(tr.wisdm.invariant, 2), SERIES.explore]] },
+            { v: tr.wisdm.fusion, color: SERIES.warn, rows: [["WISDM fusion EER", pct(tr.wisdm.fusion, 2), SERIES.warn]] }
+          ] }
+        ]
+      });
+    }
+
+    /* ---- Chart 7: multisensor ---- */
+    const msHost = document.getElementById("chart-multisensor");
+    if (msHost) {
+      const ms = S.multisensor.rows;
+      hBars(msHost, {
+        height: 240, left: 176, max: 0.13, xFmt: (v) => (v * 100).toFixed(1) + "%",
+        categories: ms.map((r) => ({ label: r.label, sub: r.tag })),
+        series: [{ color: SERIES.accent, values: ms.map((r) => ({ v: r.eer, color: r.winner ? SERIES.accent : (r.label === "accel axes" ? SERIES.base : SERIES.explore), rows: [["mean dev EER", pct(r.eer, 2), r.winner ? SERIES.accent : SERIES.base], ["role", r.winner ? "winner" : (r.label === "accel axes" ? "control" : "candidate")]] })) }],
+        valueFmt: (v) => pct(v, 2)
+      });
+    }
+
+    /* ---- Chart 7b: backend ---- */
+    const beHost = document.getElementById("chart-backend");
+    if (beHost) {
+      const be = S.backend.rows;
+      hBars(beHost, {
+        height: 260, left: 176, max: 0.1, xFmt: (v) => (v * 100).toFixed(1) + "%",
+        categories: be.map((r) => ({ label: r.label, sub: r.tag })),
+        series: [{ color: SERIES.accent, values: be.map((r) => ({ v: r.eer, color: r.winner ? SERIES.accent : (r.label === "multisensor control" ? SERIES.explore : SERIES.base), rows: [["mean EER", pct(r.eer, 2), r.winner ? SERIES.accent : SERIES.base], ["role", r.winner ? "winner" : (r.tag || "candidate")]] })) }],
+        valueFmt: (v) => pct(v, 2)
+      });
+    }
+
+    /* ---- Chart 8: calibration ---- */
+    const calHost = document.getElementById("chart-calibration");
+    if (calHost) {
+      const pols = S.calibration.policies;
+      hBars(calHost, {
+        height: 200, left: 140, max: 0.02, xFmt: (v) => (v * 100).toFixed(2) + "%",
+        categories: pols.map((p) => ({ label: p.label, sub: p.splits + "/20 splits >2% FAR" })),
+        series: [{ color: SERIES.accent, values: pols.map((p) => ({ v: p.far, color: p.winner ? SERIES.accent : SERIES.base, rows: [["mean FAR", pct(p.far, 3), p.winner ? SERIES.accent : SERIES.base], ["exact", p.far_exact], ["mean FRR", pct(p.frr, 2)], ["exact FRR", p.frr_exact], ["splits >2% FAR", p.splits + "/20"]] })) }],
+        valueFmt: (v) => pct(v, 3),
+        ref: 0.009166666666666667, refColor: SERIES.warn, refLabel: "prior policy A 0.917%"
+      });
+    }
+
+    /* ---- Chart 9: runtime trade-off ---- */
+    const rtHost = document.getElementById("chart-runtime");
+    if (rtHost) {
+      const rt = S.runtime;
+      groupedBars(rtHost, {
+        height: 210, bottomPad: 48, max: 15, showValues: true,
+        categories: [{ label: "batch 1", sub: "single window" }, { label: "batch 32", sub: "amortised" }],
+        series: [
+          { color: SERIES.base, values: [
+            { v: rt.baseline_b1, color: SERIES.base, rows: [["accel baseline", num(rt.baseline_b1, 3) + " ms", SERIES.base], ["batch 32", num(rt.baseline_b32, 3) + " ms"]] },
+            { v: rt.baseline_b32, color: SERIES.base, rows: [["accel baseline", num(rt.baseline_b32, 3) + " ms", SERIES.base]] }
+          ] },
+          { color: SERIES.cross, values: [
+            { v: rt.winner_b1, color: SERIES.cross, rows: [["multisensor winner", num(rt.winner_b1, 3) + " ms", SERIES.cross], ["slowdown", num(rt.slowdown_b1, 1) + "x"]] },
+            { v: rt.winner_b32, color: SERIES.cross, rows: [["multisensor winner", num(rt.winner_b32, 3) + " ms", SERIES.cross]] }
+          ] }
+        ],
+        yFmt: (v) => num(v, 1), valueFmt: (v) => num(v, 2) + " ms", axisLabel: "median batch latency (ms)"
+      });
+    }
+
+    /* ---- Chart 7: performance ---- */
+    const pHost = document.getElementById("chart-preproc");
+    groupedBars(pHost, {
+      height: 210, bottomPad: 48, max: 0.9, showValues: true,
+      categories: [{ label: "pandas baseline", sub: "3 runs, median" }, { label: "vectorised rewrite", sub: "identical output" }],
+      series: [{ color: SERIES.accent, values: [
+        { v: S.perf.preproc.baseline_s, color: SERIES.base, rows: [["median seconds", num(S.perf.preproc.baseline_s, 4) + " s", SERIES.base], ["windows", "1,561"], ["outputs identical", "yes"]] },
+        { v: S.perf.preproc.candidate_s, color: SERIES.good, rows: [["median seconds", num(S.perf.preproc.candidate_s, 4) + " s", SERIES.good], ["speed-up", "15.72x"], ["outputs identical", "yes"]] }
+      ] }],
+      yFmt: (v) => num(v, 2) + "s", valueFmt: (v) => num(v, 3) + " s", axisLabel: "seconds for 100k rows"
+    });
+
+    logBars(document.getElementById("chart-throughput"), {
+      height: 250, min: 10,
+      categories: [
+        { label: "HAR training", sub: "triplets/s" }, { label: "HAR inference", sub: "windows/s" },
+        { label: "WISDM training", sub: "triplets/s" }, { label: "WISDM inference", sub: "windows/s" }
+      ],
+      series: [
+        { color: SERIES.base, values: S.perf.throughput.map((r) => ({ v: r.cpu, color: SERIES.base, rows: [["CPU", Math.round(r.cpu).toLocaleString() + " /s", SERIES.base], ["GPU", Math.round(r.gpu).toLocaleString() + " /s", SERIES.accent], ["speed-up", num(r.gpu / r.cpu, 1) + "x"]] })) },
+        { color: SERIES.accent, values: S.perf.throughput.map((r) => ({ v: r.gpu, color: SERIES.accent, rows: [["GPU", Math.round(r.gpu).toLocaleString() + " /s", SERIES.accent], ["CPU", Math.round(r.cpu).toLocaleString() + " /s", SERIES.base], ["speed-up", num(r.gpu / r.cpu, 1) + "x"]] })) }
+      ],
+      valueFmt: (v) => (v >= 1000 ? (v / 1000).toFixed(1) + "k" : Math.round(v))
+    });
+
+    groupedBars(document.getElementById("chart-latency"), {
+      height: 250, bottomPad: 58, max: 5.2,
+      categories: S.perf.latency.map((r) => ({ label: r.label, sub: r.params + " params" })),
+      series: [
+        { color: SERIES.base, values: S.perf.latency.map((r) => ({ v: r.cpu, color: SERIES.base, rows: [["CPU batch-1", num(r.cpu, 3) + " ms", SERIES.base], ["CUDA batch-1", num(r.cuda, 3) + " ms", SERIES.accent]] })) },
+        { color: SERIES.accent, values: S.perf.latency.map((r) => ({ v: r.cuda, color: SERIES.accent, rows: [["CUDA batch-1", num(r.cuda, 3) + " ms", SERIES.accent], ["CPU batch-1", num(r.cpu, 3) + " ms", SERIES.base]] })) }
+      ],
+      yFmt: (v) => num(v, 1), valueFmt: (v) => num(v, 2) + " ms", axisLabel: "median batch-1 latency (ms)"
+    });
+
+    groupedBars(document.getElementById("chart-compression"), {
+      height: 230, bottomPad: 50, max: 60,
+      categories: S.perf.compression.map((r) => ({ label: r.label, sub: r.sub })),
+      series: [{ color: SERIES.bad, values: S.perf.compression.map((r) => ({ v: r.delta, color: r.delta < -45 ? SERIES.good : SERIES.bad, rows: [["change", (r.delta > 0 ? "+" : "") + num(r.delta, 1) + "%", r.delta < -45 ? SERIES.good : SERIES.bad], ["before", r.before], ["after", r.after]] })) }],
+      yFmt: (v) => v.toFixed(0) + "%", valueFmt: (v) => (v > 0 ? "+" : "") + num(v, 1) + "%", axisLabel: "change vs original (%)"
+    });
+
+    /* ---- nav scrollspy ---- */
+    const links = Array.from(document.querySelectorAll("nav.sections a"));
+    const secs = links.map((a) => document.querySelector(a.getAttribute("href"))).filter(Boolean);
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((en) => {
+        if (en.isIntersecting) {
+          links.forEach((a) => a.classList.toggle("active", a.getAttribute("href") === "#" + en.target.id));
+        }
+      });
+    }, { rootMargin: "-70px 0px -70% 0px" });
+    secs.forEach((s) => io.observe(s));
+
+    /* ---- theme ---- */
+    const themeBtn = document.getElementById("theme-toggle");
+    const stored = localStorage.getItem("gb-theme");
+    if (stored) document.documentElement.dataset.theme = stored;
+    else if (window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches) document.documentElement.dataset.theme = "light";
+    const syncTheme = () => {
+      const t = document.documentElement.dataset.theme === "light" ? "Light" : "Dark";
+      if (themeBtn) themeBtn.innerHTML = '<span class="glyph">◐</span>' + t;
+    };
+    syncTheme();
+    if (themeBtn) themeBtn.addEventListener("click", () => {
+      const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
+      document.documentElement.dataset.theme = next;
+      localStorage.setItem("gb-theme", next);
+      syncTheme();
+      registry.forEach((i) => i.draw(i.host, i.host.clientWidth));
+    });
+    const printBtn = document.getElementById("print-btn");
+    if (printBtn) printBtn.addEventListener("click", () => window.print());
+  }
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", build);
+  else build();
+})();
+</script>
+</body>
+</html>
